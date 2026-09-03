@@ -19,3 +19,4 @@ https://nrise-labs.github.io/da-mockups/<프로젝트>/
 | 폴더 | 내용 | 소스 |
 |---|---|---|
 | [`taropo/`](https://nrise-labs.github.io/da-mockups/taropo/) | 타로포 — 세포 데일리 연애운 타로 목업 (리더의 말=템플릿 모드) | athena-query-assistant `JP/scripts/sepo_tarot/` |
+| [`taropo/deck/`](https://nrise-labs.github.io/da-mockups/taropo/deck/) | 타로포 덱 카탈로그 — 22장 아트+카피 전체 열람 | 〃 |

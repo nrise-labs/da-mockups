@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#150A11">
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><meta name="theme-color" content="#150A11">
 </head><body>
 <title>타로포</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
@@ -238,7 +239,7 @@ a{color:var(--rose-ink)}
 .bz-hint{font-family:var(--sans);font-size:12px;letter-spacing:.02em;color:var(--gilt)}
 
 /* full-bleed inside the 24px screen padding so neighbours peek off both edges */
-.bz-stage{position:relative;align-self:stretch;height:288px;margin:16px -24px 0;overflow:hidden;flex:none}
+.bz-stage{position:relative;align-self:stretch;height:288px;margin:16px -24px 0;overflow:hidden;flex:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .bz-track{position:absolute;inset:0}
 .bz-cell{
   position:absolute;left:50%;top:50%;width:132px;height:208px;margin:-104px 0 0 -66px;
@@ -251,17 +252,6 @@ a{color:var(--rose-ink)}
 /* 이미 뽑힌 자리 — 부채에서 빠지고 다시 고를 수 없다 */
 .bz-cell.is-gone{opacity:0;pointer-events:none}
 .bz-stage.is-lift .bz-cell.is-focus .cardback{box-shadow:inset 0 0 0 5px rgba(0,0,0,.18), inset 0 0 0 6px rgba(217,169,75,.55), 0 20px 34px rgba(0,0,0,.52)}
-.bz-zone{position:absolute;top:0;bottom:0;width:34%;z-index:12}
-.bz-zone.left{left:0}
-.bz-zone.right{right:0}
-.bz-zone::after{
-  content:"";position:absolute;top:50%;width:10px;height:10px;
-  border-top:1.5px solid rgba(255,201,219,.42);border-right:1.5px solid rgba(255,201,219,.42);
-  transition:border-color .18s ease;
-}
-.bz-zone.left::after{left:15px;transform:translateY(-50%) rotate(-135deg)}
-.bz-zone.right::after{right:15px;transform:translateY(-50%) rotate(45deg)}
-.bz-zone:hover::after{border-color:var(--rose)}
 .bz-pick{position:absolute;left:50%;top:50%;width:132px;height:208px;margin:-104px 0 0 -66px;z-index:15;border-radius:12px}
 .bz-fly{position:absolute;z-index:30;pointer-events:none;transition:transform 420ms cubic-bezier(.3,.75,.3,1), opacity 420ms ease}
 .bz-fly .cardback{width:100%;height:100%;border-radius:12px}
@@ -926,7 +916,7 @@ const T = {
     ctaDraw:"오늘의 카드 뽑기",
     entryFoot:"하루에 한 번, 자정에 새 덱",
     ordinal:function(n){ return ["첫 번째 카드","두 번째 카드","세 번째 카드"][n] || "카드"; },
-    browseHint:"양옆을 탭하면 카드가 넘어가고,\n가운데 카드를 탭하면 그 자리에 놓여.",
+    browseHint:"좌우로 넘기면 카드가 바뀌고,\n가운데 카드를 탭하면 그 자리에 놓여.",
     prevCard:"이전 카드",
     nextCard:"다음 카드",
     pickAria:"가운데 카드 고르기",
@@ -966,7 +956,7 @@ const T = {
     ctaDraw:"今日のカードを引く",
     entryFoot:"一日に一回、夜中に新しいデッキ",
     ordinal:function(n){ return ["一枚目","二枚目","三枚目"][n] || "カード"; },
-    browseHint:"左右をタップするとカードがめくれて、\nまん中のカードをタップするとその場所に置かれるよ。",
+    browseHint:"左右にスワイプするとカードが変わって、\nまん中のカードをタップするとその場所に置かれるよ。",
     prevCard:"前のカード",
     nextCard:"次のカード",
     pickAria:"まん中のカードを選ぶ",
@@ -1255,10 +1245,10 @@ function viewBrowse(){
     '<div class="bz-head">' + browseHeadHTML() + '</div>' +
     '<div class="bz-stage" id="bzStage">' +
       '<div class="bz-track" id="bzTrack" aria-hidden="true">' + cells + '</div>' +
-      '<button type="button" class="bz-zone left" data-slide="-1" aria-label="' + esc(t().prevCard) + '"></button>' +
-      '<button type="button" class="bz-zone right" data-slide="1" aria-label="' + esc(t().nextCard) + '"></button>' +
       '<button type="button" class="bz-pick" id="bzPick" aria-label="' + esc(t().pickAria) + '"></button>' +
     '</div>' +
+    '<button type="button" class="sr-only" id="bzPrev">' + esc(t().prevCard) + '</button>' +
+    '<button type="button" class="sr-only" id="bzNext">' + esc(t().nextCard) + '</button>' +
     '<p class="bz-foot">' + esc(t().browseHint) + '</p>' +
   '</div>';
 }
@@ -1278,6 +1268,7 @@ function isGone(p){ return state.picked.indexOf(p) !== -1; }
    d 가 한 칸씩 바뀌면 transform 이 이어져 부채를 넘기는 느낌이 나고,
    링 끝에서 반대편으로 감기는 셀 한 장만 transition 을 잠깐 끊는다. */
 let lastD = null;
+let bzSwallowClick = false;   /* 스와이프·탭이 처리한 제스처 뒤 따라온 click 1회 삼킴(중앙 버튼 이중 트리거 방지) */
 function layoutCarousel(){
   const track = $("bzTrack");
   if (!track) return;
@@ -2090,6 +2081,63 @@ function render(){
       pick.addEventListener("focus", on);
       pick.addEventListener("blur", off);
     }
+    /* 스와이프/드래그 네비 — 포인터 통일(터치·마우스·펜). 가로 우세 제스처만 캡처해
+       트랙을 손가락 따라 옮기고, 손을 떼면 임계(40px 또는 플릭 0.4px/ms)에서 한 장만
+       넘긴다. 세로 우세는 흘려 페이지 스크롤에 양보. 탭(이동<8px·<250ms)=중앙 카드 선택. */
+    if (stage){
+      const track = $("bzTrack");
+      const TAP_MOVE = 8, TAP_TIME = 250, COMMIT_PX = 40, FLICK_V = 0.4, FOLLOW = 0.5, FOLLOW_MAX = 64;
+      let sx = 0, sy = 0, st = 0, pid = -1, decided = false, horiz = false, lx = 0, lt = 0, vx = 0;
+      const clampF = function(v){ return v < -FOLLOW_MAX ? -FOLLOW_MAX : (v > FOLLOW_MAX ? FOLLOW_MAX : v); };
+      stage.addEventListener("pointerdown", function(e){
+        if (state.flying || sealing) return;
+        pid = e.pointerId; sx = e.clientX; sy = e.clientY; st = e.timeStamp;
+        lx = sx; lt = st; vx = 0; decided = false; horiz = false; bzSwallowClick = false;
+      });
+      stage.addEventListener("pointermove", function(e){
+        if (e.pointerId !== pid) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        if (!decided){
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+          decided = true; horiz = Math.abs(dx) > Math.abs(dy);
+          if (horiz){
+            try { stage.setPointerCapture(pid); } catch (_e){}
+            if (track && !REDUCED.matches) track.style.transition = "none";
+          }
+        }
+        if (!horiz) return;
+        e.preventDefault();
+        const now = e.timeStamp;
+        if (now > lt){ vx = (e.clientX - lx) / (now - lt); lx = e.clientX; lt = now; }
+        if (track && !REDUCED.matches) track.style.transform = "translateX(" + clampF(dx * FOLLOW) + "px)";
+      });
+      const endSwipe = function(e){
+        if (e.pointerId !== pid) return;
+        try { if (stage.hasPointerCapture(pid)) stage.releasePointerCapture(pid); } catch (_e){}
+        const dx = e.clientX - sx, dy = e.clientY - sy, dt = e.timeStamp - st;
+        const wasHoriz = decided && horiz; pid = -1;
+        if (track){
+          track.style.transition = (wasHoriz && !REDUCED.matches) ? "transform 200ms cubic-bezier(.22,.61,.36,1)" : "none";
+          track.style.transform = "";
+        }
+        if (wasHoriz){
+          bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
+          if (Math.abs(dx) > COMMIT_PX || Math.abs(vx) > FLICK_V) slideBy(dx < 0 ? 1 : -1);
+        } else if (!decided && Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && dt < TAP_TIME){
+          bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
+          pickCard();
+        }
+      };
+      stage.addEventListener("pointerup", endSwipe);
+      stage.addEventListener("pointercancel", function(e){
+        if (e.pointerId !== pid) return;
+        pid = -1; decided = false; horiz = false;
+        if (track){ track.style.transition = "none"; track.style.transform = ""; }
+      });
+    }
+    const bzPrev = $("bzPrev"), bzNext = $("bzNext");
+    if (bzPrev) bzPrev.addEventListener("click", function(){ slideBy(-1); });
+    if (bzNext) bzNext.addEventListener("click", function(){ slideBy(1); });
   }
   /* 연출은 한 리딩에 한 번뿐이다. 이미 지나간 화면(언어 전환 등)은 최종 상태로 그린다. */
   if (state.view === "reveal"){
@@ -2202,8 +2250,8 @@ function act(a){
    EVENTS
    ======================================================= */
 views.addEventListener("click", function(e){
-  const slide = e.target.closest("[data-slide]");
-  if (slide){ slideBy(parseInt(slide.getAttribute("data-slide"), 10)); return; }
+  /* 스와이프/탭이 이미 처리한 제스처 뒤에 따라온 click 은 삼킨다(중앙 선택 이중 트리거 방지). */
+  if (bzSwallowClick){ bzSwallowClick = false; return; }
   if (e.target.closest("#bzPick")){ pickCard(); return; }
   const sel = e.target.closest("[data-sel]");
   if (sel){ setStorySel(sel.getAttribute("data-sel")); return; }

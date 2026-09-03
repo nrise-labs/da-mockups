@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><meta name="theme-color" content="#150A11">
-</head><body>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><meta name="theme-color" content="#150A11"></head><body>
 <title>타로포</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -160,7 +158,7 @@ a{color:var(--rose-ink)}
 
 /* ---- entry ----
    점술사 타로포 — 래스터(민무늬 세포) 1장 + 금박 라인 의상 2겹(뒤/앞).
-   셋 다 .teller-in 한 덩어리 안에 있으므로 모자·링·수정구가 몸과 같이 둥실거린다.
+   셋 다 .teller-in 한 덩어리 안에 있으므로 스카프·코인 장신구·수정구가 몸과 같이 둥실거린다.
    원본 래스터는 회전·변형하지 않는다 — 의상은 전부 오버레이 라인이다.
    좌표계: 200×200 박스. 래스터는 (25,34)에 150px. 실측 실루엣 — 정수리 y=43,
    발끝 y=174(높이 131), 최대폭 y=126 에서 113(x 43~156), 중심선 x=100. */
@@ -916,12 +914,12 @@ function motif(key, cls){
 const SIGIL = '<svg class="sigil" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="19"/><path d="M32 13v38M13 32h38"/><path d="M32 20l8 12-8 12-8-12z"/></svg>';
 
 /* =======================================================
-   ENTRY — 점술사 의상 (금박 라인 오버레이)
+   ENTRY — 점술사 의상 (헤드스카프 + 금박 장신구 오버레이)
    카드 장면과 같은 문법: fill=none / stroke=gilt / 0.9~2.2 획.
    좌표계는 200×200. 래스터는 (25,34)+150px 이므로
-     정수리 y≈42.7 · 얼굴 y≈90 · 몸통 최대폭 y≈129 · 발끝 y≈175 · 중심 x=100.
-   앞뒤 두 장으로 나눠 링이 몸을 관통하게 만든다 — 뒤 아크는 래스터 아래,
-   앞 아크·모자·수정구는 래스터 위.
+     정수리 y≈42.7 · 얼굴 y≈88.4 · 몸통 최대폭 y≈129 · 발끝 y≈175 · 중심 x=100.
+   앞뒤 두 장으로 나눠 스카프가 머리를 "감싸게" 만든다 — 밑단 뒷반쪽·뒤꼬리는
+   래스터 아래, 천·매듭·브로우 체인·코인 벨트·수정구는 래스터 위.
    ======================================================= */
 /* 4각 반짝별 — 중심(x,y)·반지름 r. 카드 장면의 잔디테일과 같은 두께대. */
 function tlStar(x, y, r, sw, op){
@@ -937,51 +935,53 @@ const TL_OPEN = '<svg class="tl-line ' , TL_ATTR =
   '" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="1.25" ' +
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
 
-/* 뒤판 — 궤도의 뒤 아크(몸 뒤를 지나감) + 모자 챙의 뒷반쪽 + 잔별.
-   궤도는 중심(100,124)·rx88·ry28을 −18° 기울인 것. 모자가 오른쪽으로 꺾인 방향과 같은 결.
-   챙은 앞/뒤 반쪽으로 갈라 뒷반쪽만 여기 둔다 — 머리 래스터가 그 선을 덮으므로
-   챙이 머리를 관통하지 않고 "얹혔다"로 읽히고, 머리 밖으로 나온 양옆만 보인다. */
+/* 뒤판 — 스카프 밑단의 뒷반쪽 + 매듭에서 뒤로 말려 나간 꼬리 + 잔별.
+   밑단은 중심(100,63)·rx40.5·ry7 타원을 앞/뒤 반쪽으로 가른 것이고 뒷반쪽만 여기 둔다.
+   머리 래스터가 그 선을 덮으므로 스카프가 머리를 관통하지 않고 "감쌌다"로 읽히고,
+   실루엣 밖으로 나온 양옆 끝만 보인다 — 옛 모자 챙이 쓰던 가림 트릭 그대로다. */
 const TELLER_BACK = TL_OPEN + 'tl-back' + TL_ATTR +
-  '<g transform="rotate(-18 100 124)">' +
-    '<path d="M12 124A88 28 0 0 1 188 124" stroke-width="1.15" opacity=".5"/>' +
-  '</g>' +
-  '<path d="M56 60C56 55.4 75 52 100 52C125 52 144 55.4 144 60Z" fill="rgba(79,7,32,.2)" stroke="none"/>' +
-  '<path d="M56 60C56 55.4 75 52 100 52C125 52 144 55.4 144 60" stroke-width="1.9"/>' +
-  tlStar(172, 78, 2.9, 1.0, .7) +
-  tlStar(161, 64, 2.2, .95, .46) +
-  tlStar(27, 116, 2.6, 1.0, .58) +
+  '<path d="M59.37 63C59.37 58.8 77.97 56 100 56C121.71 56 140.31 58.8 140.31 63Z" fill="rgba(126,11,50,.42)" stroke="none"/>' +
+  '<path d="M59.37 63C59.37 58.8 77.97 56 100 56C121.71 56 140.31 58.8 140.31 63" stroke-width="1.45" opacity=".6"/>' +
+  '<path d="M141.31 65.56C142.46 65.07 146.03 62.89 148.2 62.6C150.37 62.31 152.69 62.63 154.34 63.8C155.99 64.97 157.48 68.66 158.1 69.63L159.1 69.17C158.66 67.87 158.28 63.3 156.46 61.4C154.64 59.51 151.03 58.09 148.2 57.8C145.37 57.51 140.94 59.33 139.49 59.64Z" fill="rgba(126,11,50,.6)" stroke-width="1.15" opacity=".85"/>' +
+  tlStar(168, 88, 2.6, 1.0, .5) +
+  tlStar(30, 104, 2.3, .95, .42) +
   '</svg>';
 
-/* 앞판 — 궤도의 앞 아크 + 달 위상 4개(초승→반→상현망간→보름) / 수정구 / 점술사 모자.
-   순서: 궤도 앞아크 → 수정구 → 챙 앞반쪽·두께 → 콘(오른쪽으로 꺾인 끝) → 밴드 → 별 → 초승달 참.
-   챙 폭 88 대 그 자리 머리 폭 69 — 과하게 넓히면 머리 위에 뜬 테처럼 읽힌다.
-   챙 중심선 y=60 은 정수리(y=43)에서 실루엣 높이(131)의 13% 아래 — 여기가 얹힌 접점이다.
-   콘은 밑동(y=58~62)이 챙 링(y=52~71) 안에 물리도록 앉혀 뜬 느낌을 없앴다. */
+/* 앞판 — 수정구 / 헤드스카프(천·그늘·주름·밑단 금박) / 매듭·앞꼬리 /
+   브로우 체인(초승달 참 + 코인 4) / 코인 벨트(코인 6 + 물방울 참) / 잔별.
+   천 윤곽은 래스터 알파를 레이캐스트해 3px 바깥으로 민 실측선이다 — 마루 y=39.75
+   (실측 정수리 42.75), 밑단 y=63 은 정수리에서 실루엣 높이(131)의 15% 아래.
+   밑단은 앞반쪽만 아래로 활을 그려 이마를 지나가고, 뒷반쪽은 뒤판이 가져간다.
+   앞꼬리는 y 84~95 에서 래스터 오른쪽 가장자리를 타 넘어 몸 위로 떨어진다.
+   팔 스텁 팔찌는 시안에서 흰 팔 위 실선 흠집으로 읽혀 뺐다 — 반짝임은 코인이 맡는다. */
 const TELLER_FRONT = TL_OPEN + 'tl-front' + TL_ATTR +
-  '<g transform="rotate(-18 100 124)">' +
-    '<path d="M12 124A88 28 0 0 0 188 124" stroke-width="1.5" opacity=".85"/>' +
-    '<g stroke-width="1.1">' +
-      '<path d="M18.41 134.49A4.6 4.6 0 1 0 21.86 141.69A4.3 4.3 0 0 1 18.41 134.49Z" fill="rgba(217,169,75,.45)"/>' +
-      '<circle cx="50.81" cy="147.21" r="4.6"/>' +
-      '<path d="M50.81 142.61A4.6 4.6 0 0 1 50.81 151.81Z" fill="rgba(217,169,75,.55)" stroke="none"/>' +
-      '<circle cx="161.14" cy="144.14" r="4.6" fill="rgba(217,169,75,.42)"/>' +
-      '<circle cx="182.69" cy="133.58" r="4.6" fill="rgba(217,169,75,.78)"/>' +
-    '</g>' +
-  '</g>' +
   '<circle cx="100" cy="174" r="19" fill="rgba(217,169,75,.1)" stroke-width="1.6"/>' +
   '<path d="M89.42 166.59A12.92 12.92 0 0 1 98.2 161.21" stroke-width="1.05" opacity=".85"/>' +
   '<path d="M84.45 176.18A15.71 15.71 0 0 1 85.77 167.36" stroke-width=".95" opacity=".55"/>' +
   tlStar(108.87, 165.77, 3.67, .95, .85) +
-  '<path d="M56 60C56 66.4 75 71 100 71C125 71 144 66.4 144 60Z" fill="rgba(79,7,32,.2)" stroke="none"/>' +
-  '<path d="M56 60C56 70 75 76 100 76C125 76 144 70 144 60C144 66.4 125 71 100 71C75 71 56 66.4 56 60Z" fill="rgba(79,7,32,.2)" stroke="none"/>' +
-  '<path d="M56 60C56 66.4 75 71 100 71C125 71 144 66.4 144 60" stroke-width="1.9"/>' +
-  '<path d="M56 60C56 70 75 76 100 76C125 76 144 70 144 60" stroke-width="1.05" opacity=".6"/>' +
-  '<path d="M78 58C81 41.5 91 28 106.5 19C114 14.8 124 14.2 131.5 17.2C129 24.5 124 31.4 118.5 36.4C121.5 45.3 122 52.2 122 58C122 60.3 112 62.2 100 62.2C88 62.2 78 60.3 78 58Z" fill="rgba(79,7,32,.2)" stroke-width="2"/>' +
-  '<path d="M81.6 46.6C86.6 49.3 93.2 50.7 100.6 50.7C108 50.7 114.6 49.3 119.6 46.6L119.9 41C115.3 43.3 108.4 44.6 101.2 44.6C94 44.6 87.7 43.3 84.1 41Z" fill="rgba(79,7,32,.2)" stroke-width="1.15" opacity=".9"/>' +
-  tlStar(93.5, 36, 3.4, 1.0, .9) +
-  tlStar(109, 26, 2.2, .95, .78) +
-  '<path d="M131.8 17.8C134.6 21 136.6 25.6 137.1 30" stroke-width="1.05" opacity=".85"/>' +
-  '<path d="M136.8 30.14A5.4 5.4 0 1 0 141.96 38.54A5 5 0 0 1 136.8 30.14Z" fill="rgba(217,169,75,.4)" stroke-width="1.3"/>' +
+  '<path d="M59.37 63C60.64 61.25 64.06 55.5 67 52.51C69.94 49.53 73.49 47.03 77.03 45.08C80.58 43.14 84.47 41.71 88.29 40.83C92.11 39.94 96.06 39.75 99.95 39.75C103.84 39.75 107.78 39.95 111.61 40.82C115.44 41.69 119.35 43.05 122.92 44.97C126.48 46.9 130.1 49.38 132.99 52.38C135.89 55.39 139.09 61.23 140.31 63C140.31 67.2 121.71 70 100 70C77.97 70 59.37 67.2 59.37 63Z" fill="rgba(126,11,50,.8)" stroke-width="1.5"/>' +
+  '<path d="M111.61 40.82C119.35 43.05 130.1 49.38 140.31 63C133.4 61.6 128.2 52.6 122.4 47.4C119 44.4 115 42.4 111.61 40.82Z" fill="rgba(79,7,32,.34)" stroke="none"/>' +
+  '<path d="M59.37 63C59.37 67.2 77.97 70 100 70C121.71 70 140.31 67.2 140.31 63C138.4 61.4 123 64.6 100 64.6C77 64.6 61.3 61.4 59.37 63Z" fill="rgba(79,7,32,.5)" stroke="none"/>' +
+  '<g stroke-width=".9" opacity=".42">' +
+    '<path d="M133 59.6C122 51.6 110 44.6 100.4 41.8"/>' +
+    '<path d="M131.6 63.4C116 57.4 100 50 87.4 43.2"/>' +
+    '<path d="M128.6 65.4C110 62.4 88 59.4 70.6 52.6"/>' +
+  '</g>' +
+  '<path d="M59.37 63C59.37 67.2 77.97 70 100 70C121.71 70 140.31 67.2 140.31 63" stroke-width="1.9"/>' +
+  '<path d="M138.37 69.93C138.23 71.04 138.04 74.23 137.52 76.57C137.01 78.91 135.26 81.44 135.26 83.98C135.26 86.52 136.09 89.85 137.52 91.79C138.96 93.73 142.81 94.99 143.86 95.63L144.54 94.77C143.79 94.01 140.91 91.94 140.08 90.21C139.24 88.49 139.07 86.42 139.54 84.42C140.01 82.42 141.99 80.42 142.88 78.23C143.76 76.03 144.51 72.43 144.83 71.27Z" fill="rgba(126,11,50,.72)" stroke-width="1.15"/>' +
+  '<path d="M133.6 59.4C139.6 56.6 147.4 58.4 149.4 63.4C151.2 68 147.6 72.6 142 72.6C137 72.6 133.4 69.6 132.8 65.6Z" fill="rgba(126,11,50,.82)" stroke-width="1.5"/>' +
+  '<path d="M137.4 60.8C140.2 63.4 141.4 67 140.8 71.2" stroke-width=".95" opacity=".55"/>' +
+  '<path d="M60.87 64C60.87 68.9 77.97 71.7 100 71.7C121.71 71.7 138.81 68.9 138.81 64" stroke-width="1.5" stroke-dasharray=".01 2.6" opacity=".85"/>' +
+  '<path d="M100 71.7V73.6" stroke-width=".9" opacity=".9"/>' +
+  '<circle cx="100" cy="74.9" r="1.3" stroke-width=".9" opacity=".9"/>' +
+  '<path d="M95.42 76.2A5 5 0 1 0 104.58 76.2A4.6 4.6 0 0 1 95.42 76.2Z" fill="rgba(217,169,75,.4)" stroke-width="1.3"/>' +
+  '<path d="M64.28 68.16V70.56" stroke-width=".9" opacity=".84"/><circle cx="64.28" cy="72.56" r="2" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".84"/><circle cx="64.28" cy="72.56" r=".7" fill="currentColor" stroke="none" opacity=".84"/><path d="M77.73 70.62V74.02" stroke-width=".9" opacity=".92"/><circle cx="77.73" cy="76.32" r="2.3" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".92"/><circle cx="77.73" cy="76.32" r=".7" fill="currentColor" stroke="none" opacity=".92"/><path d="M122.04 70.62V74.02" stroke-width=".9" opacity=".92"/><circle cx="122.04" cy="76.32" r="2.3" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".92"/><circle cx="122.04" cy="76.32" r=".7" fill="currentColor" stroke="none" opacity=".92"/><path d="M135.41 68.16V70.56" stroke-width=".9" opacity=".84"/><circle cx="135.41" cy="72.56" r="2" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".84"/><circle cx="135.41" cy="72.56" r=".7" fill="currentColor" stroke="none" opacity=".84"/>' +
+  '<path d="M46.5 124.6C68 140 99 146.5 134 147.5" stroke-width="1.4" opacity=".9"/>' +
+  '<path d="M53.23 128.96V131.56" stroke-width=".9" opacity=".92"/><circle cx="53.23" cy="134.26" r="2.7" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".92"/><circle cx="53.23" cy="134.26" r=".7" fill="currentColor" stroke="none" opacity=".92"/><path d="M63.93 134.37V138.37" stroke-width=".9" opacity=".8"/><circle cx="63.93" cy="140.67" r="2.3" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".8"/><circle cx="63.93" cy="140.67" r=".7" fill="currentColor" stroke="none" opacity=".8"/><path d="M75.66 138.76V141.36" stroke-width=".9" opacity=".92"/><circle cx="75.66" cy="144.06" r="2.7" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".92"/><circle cx="75.66" cy="144.06" r=".7" fill="currentColor" stroke="none" opacity=".92"/><path d="M88.32 142.2V146.2" stroke-width=".9" opacity=".8"/><circle cx="88.32" cy="148.5" r="2.3" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".8"/><circle cx="88.32" cy="148.5" r=".7" fill="currentColor" stroke="none" opacity=".8"/><path d="M101.81 144.74V147.34" stroke-width=".9" opacity=".92"/><circle cx="101.81" cy="150.04" r="2.7" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".92"/><circle cx="101.81" cy="150.04" r=".7" fill="currentColor" stroke="none" opacity=".92"/><path d="M116.02 146.45V150.45" stroke-width=".9" opacity=".8"/><circle cx="116.02" cy="152.75" r="2.3" fill="rgba(217,169,75,.3)" stroke-width="1.05" opacity=".8"/><circle cx="116.02" cy="152.75" r=".7" fill="currentColor" stroke="none" opacity=".8"/>' +
+  '<path d="M132.43 147.45V149.75" stroke-width=".9" opacity=".9"/><path d="M132.43 149.75C134.35 152.45 134.83 153.21 134.83 154.65A2.4 2.4 0 0 1 130.03 154.65C130.03 153.21 130.51 152.45 132.43 149.75Z" fill="rgba(217,169,75,.34)" stroke-width="1.05" opacity=".92"/>' +
+  tlStar(38, 132, 2.6, 1.0, .6) +
+  tlStar(150, 82, 2.4, .95, .58) +
+  tlStar(146, 157, 2.9, 1.0, .76) +
   '</svg>';
 
 /* 리빌 전용 오버레이 — 수정구 글로우·궤도 링·금박 소용돌이·스파클.

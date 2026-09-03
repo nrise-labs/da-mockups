@@ -145,6 +145,25 @@ a{color:var(--rose-ink)}
 .deck-cell:hover .cardface{box-shadow:0 20px 42px rgba(0,0,0,.56), 0 0 0 1px rgba(217,169,75,.5)}
 .deck-cell:focus-visible{outline:2px solid var(--rose);outline-offset:6px}
 
+/* ---- tilt — 호버 기기 + 모션 허용 환경 한정 ---- */
+.tiltbox{position:relative;display:block;border-radius:14px}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  .deck-cell{perspective:820px}
+  .tiltbox{
+    transform:rotateX(var(--tx,0deg)) rotateY(var(--ty,0deg));
+    transition:transform .28s ease;will-change:transform;
+  }
+  .deck-cell.is-tilt .tiltbox{transition:transform .06s linear}
+  .tilt-glare{
+    position:absolute;inset:0;border-radius:14px;pointer-events:none;
+    background:radial-gradient(220px circle at var(--gx,50%) var(--gy,40%),
+      rgba(255,236,190,.30), rgba(217,169,75,.10) 42%, transparent 72%);
+    opacity:0;transition:opacity .25s ease;mix-blend-mode:screen;
+  }
+  .deck-cell.is-tilt .tilt-glare{opacity:1}
+  .deck-cell.is-tilt{transform:translateY(-5px)}
+}
+
 /* ---- footer ---- */
 .pg-foot{
   max-width:var(--wrap);width:100%;margin:clamp(44px,6vw,76px) auto 0;
@@ -1609,7 +1628,8 @@ function renderGrid(){
     const c = CARDS[i];
     h += '<button type="button" class="deck-cell" data-i="' + i + '" aria-haspopup="dialog" ' +
          'aria-label="' + esc(lab().cardAria(c.num, c[state.lang].name)) + '">' +
-         faceAt(c, GRID_W) + '</button>';
+         '<span class="tiltbox">' + faceAt(c, GRID_W) +
+         '<i class="tilt-glare" aria-hidden="true"></i></span></button>';
   }
   grid.innerHTML = h;
   grid.setAttribute("lang", state.lang);
@@ -1698,6 +1718,34 @@ function closeModal(){
 /* 아트 폭은 브레이크포인트에 따라 다시 그린다 — --sy 가 폭에 묶여 있어서. */
 if (NARROW.addEventListener) NARROW.addEventListener("change", function(){ if (openIdx >= 0) renderDetail(); });
 else if (NARROW.addListener) NARROW.addListener(function(){ if (openIdx >= 0) renderDetail(); });
+
+/* ---- tilt: 카드가 커서를 따라 기울고, 금박 글레어가 지점을 따라간다 ---- */
+const TILT_MAX = 9;
+function tiltReset(cell){
+  cell.classList.remove("is-tilt");
+  const box = cell.querySelector(".tiltbox");
+  if (box){ box.style.setProperty("--tx","0deg"); box.style.setProperty("--ty","0deg"); }
+}
+if (window.matchMedia && matchMedia("(hover:hover)").matches &&
+    !matchMedia("(prefers-reduced-motion: reduce)").matches){
+  grid.addEventListener("pointermove", function(e){
+    const cell = e.target.closest(".deck-cell"); if (!cell) return;
+    const box = cell.querySelector(".tiltbox"); if (!box) return;
+    const r = box.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    if (px < 0 || px > 1 || py < 0 || py > 1) return;
+    box.style.setProperty("--ty", ((px - .5) * 2 * TILT_MAX).toFixed(2) + "deg");
+    box.style.setProperty("--tx", ((.5 - py) * 2 * TILT_MAX).toFixed(2) + "deg");
+    box.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
+    box.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+    cell.classList.add("is-tilt");
+  });
+  grid.addEventListener("pointerout", function(e){
+    const cell = e.target.closest(".deck-cell");
+    if (cell && !(e.relatedTarget && cell.contains(e.relatedTarget))) tiltReset(cell);
+  });
+}
 
 grid.addEventListener("click", function(e){
   const btn = e.target.closest(".deck-cell");

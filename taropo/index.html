@@ -124,6 +124,21 @@ a{color:var(--rose-ink)}
    좌표계: 200×200 박스. 래스터는 (25,34)에 150px. 실측 실루엣 — 정수리 y=43,
    발끝 y=174(높이 131), 최대폭 y=126 에서 113(x 43~156), 중심선 x=100. */
 .v-entry{align-items:center;justify-content:center;gap:0;text-align:center}
+/* 첫 화면 제목 — 화면 맨 위에 붙고 금박 실선 한 줄이 받친다. 본체(.entry-body)는
+   남은 공간의 가운데를 지키되 56px 만큼 더 내려앉는다. 리빌의 타로포(#rvTeller 안의
+   .teller)는 이 규칙 밖이라 그대로다 — 여백은 전부 .v-entry 안에만 걸린다. */
+.entry-title{
+  flex:none;margin:6px 0 0;font-family:var(--serif);font-weight:500;
+  font-size:28px;line-height:1.3;letter-spacing:.04em;color:var(--cream);
+}
+.entry-title::after{
+  content:"";display:block;width:26px;height:1px;margin:10px auto 0;
+  background:var(--gilt);opacity:.6;
+}
+.entry-body{
+  flex:1 0 auto;width:100%;margin-top:56px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
 .teller{position:relative;width:200px;height:200px;margin-bottom:2px}
 .teller-in{position:absolute;inset:0}
 .teller-in::before{
@@ -518,22 +533,29 @@ a{color:var(--rose-ink)}
 @keyframes weave{0%,100%{opacity:.5}50%{opacity:.9}}
 .quint .cardface{box-shadow:0 16px 40px rgba(0,0,0,.5), 0 0 30px -6px rgba(217,169,75,.6)}
 .quint .cardface::before{border-color:rgba(217,169,75,.8)}
-.quint-axis{
-  font-family:var(--sans);font-size:11.5px;line-height:1.6;color:var(--gilt);
-  border:1px solid rgba(217,169,75,.4);border-radius:999px;padding:6px 14px;
+/* ---- 오늘의 카드 3D 틸트 — 바깥(.quint-tilt)은 원근과 느린 자동 흔들림,
+   안(.tiltbox)은 손끝을 따르는 기울기. 층을 갈라 두 변형이 서로를 덮지 않는다.
+   pan-y — 세로로 끌면 페이지가 스크롤되고 포인터가 취소되어 제자리로 돌아온다. */
+.quint-tilt{position:relative;perspective:900px;transform-style:preserve-3d;touch-action:pan-y}
+.quint-tilt .tiltbox{position:relative;display:block;border-radius:8px;transform:rotateX(var(--tx,0deg)) rotateY(var(--ty,0deg))}
+.tilt-glare{
+  position:absolute;inset:0;border-radius:8px;pointer-events:none;z-index:3;opacity:0;mix-blend-mode:screen;
+  background:radial-gradient(180px circle at var(--gx,50%) var(--gy,40%), rgba(255,236,190,.3), rgba(217,169,75,.1) 42%, transparent 72%);
 }
-.quint-text{max-width:31ch}
-/* 오늘의 한 걸음 — 화면에 남은 유일한 행동 문장이라 장미빛 상자로 따로 세운다.
-   날씨 칩(금박)과 색을 갈라 두 개가 같은 무게로 읽히지 않게 한다. */
-.quint-step{
-  width:100%;max-width:31ch;display:flex;flex-direction:column;align-items:center;gap:6px;
-  margin-top:2px;padding:13px 16px;border-radius:14px;
-  border:1px solid rgba(249,35,108,.36);
-  background:linear-gradient(180deg, rgba(249,35,108,.13), rgba(249,35,108,.04));
+.quint-tilt.is-tilt .tilt-glare{opacity:1}
+.quint-tilt.is-tilt .cardface{box-shadow:0 22px 46px rgba(0,0,0,.58), 0 0 34px -4px rgba(217,169,75,.75)}
+@media (prefers-reduced-motion:no-preference){
+  .quint-tilt{animation:qwobble 7s ease-in-out infinite}
+  .quint-tilt .tiltbox{transition:transform .5s ease;will-change:transform}
+  .tilt-glare{transition:opacity .35s ease}
+  .quint-tilt.is-tilt{animation-play-state:paused}
+  .quint-tilt.is-tilt .tiltbox{transition:transform .08s linear}
 }
-.qs-lab{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.18em;color:var(--rose)}
-.qs-txt{font-family:var(--serif);font-weight:500;font-size:15px;line-height:1.6;color:var(--cream)}
-.rd-relock{margin-top:14px;text-align:center;font-size:11.5px;line-height:1.7;color:rgba(255,201,219,.5)}
+@keyframes qwobble{
+  0%,100%{transform:perspective(900px) rotateX(3deg) rotateY(-4deg)}
+  34%{transform:perspective(900px) rotateX(-2.2deg) rotateY(-1.4deg)}
+  67%{transform:perspective(900px) rotateX(-3deg) rotateY(4deg)}
+}
 
 /* ---- 공개 페이싱 (v6.2) ----
    갤러리 아트와 같은 규칙이다: 최종 상태가 기본이고, 연출 클래스는 스크립트가
@@ -982,6 +1004,7 @@ const CUE_HTML =
 const T = {
   ko:{
     charName:"타로포",
+    entryTitle:"오늘의 타로포",
     greet:"안녕, 나는 타로포야.<br>오늘의 카드를 세 장 골라보자.",
     ctaDraw:"오늘의 카드 뽑기",
     ctaView:"오늘의 카드 보기",
@@ -1020,6 +1043,7 @@ const T = {
   },
   ja:{
     charName:"タロポ",
+    entryTitle:"今日のタロポ",
     greet:"こんにちは、タロポだよ。<br>今日のカードを三枚えらんでみて。",
     ctaDraw:"今日のカードを引く",
     ctaView:"今日のカードを見る",
@@ -1252,16 +1276,19 @@ function viewEntry(){
      기록이 없거나 날짜가 넘어갔으면 지금까지처럼 "오늘의 카드 뽑기"다. */
   const seen = !!recToday();
   return '<div class="v v-entry">' +
-    '<div class="teller"><div class="teller-in float">' +
-      TELLER_BACK +
-      '<img class="sepo" src="' + SEPO.sepo_baby_idle + '" alt="' + esc(t().sepoAlt) + '">' +
-      TELLER_FRONT +
-      '<div class="sepo3d"></div>' +
-    '</div></div>' +
-    '<div class="bubble bubble-c">' + t().greet + '</div>' +
-    '<div class="entry-btns">' +
-      '<button type="button" class="btn primary" data-act="' + (seen ? "view" : "start") + '">' +
-        '<span>' + esc(seen ? t().ctaView : t().ctaDraw) + '</span></button>' +
+    '<h1 class="entry-title">' + esc(t().entryTitle) + '</h1>' +
+    '<div class="entry-body">' +
+      '<div class="teller"><div class="teller-in float">' +
+        TELLER_BACK +
+        '<img class="sepo" src="' + SEPO.sepo_baby_idle + '" alt="' + esc(t().sepoAlt) + '">' +
+        TELLER_FRONT +
+        '<div class="sepo3d"></div>' +
+      '</div></div>' +
+      '<div class="bubble bubble-c">' + t().greet + '</div>' +
+      '<div class="entry-btns">' +
+        '<button type="button" class="btn primary" data-act="' + (seen ? "view" : "start") + '">' +
+          '<span>' + esc(seen ? t().ctaView : t().ctaDraw) + '</span></button>' +
+      '</div>' +
     '</div>' +
   '</div>';
 }
@@ -1592,7 +1619,10 @@ function viewReading(){
         '<span class="qw-dash" aria-hidden="true">&mdash;</span>' +
         '<span class="qw-txt">' + esc(w.text) + '</span></p>' +
       readerBlock(readerLine(state.draws, q, w.score), state.readerLive[state.lang]) +
-      cardFace(qCard, q.reversed, "hero") +
+      '<div class="quint-tilt"><span class="tiltbox">' +
+        cardFace(qCard, q.reversed, "hero") +
+        '<i class="tilt-glare" aria-hidden="true"></i>' +
+      '</span></div>' +
       '<span class="cf-badge-out">' + esc(qCard.archetype) + '</span>' +
       axis +
       /* 종합의 본문은 결론체(verdict)다 — 자리 본문(text)을 다시 쓰면 오늘의 카드가
@@ -2210,6 +2240,52 @@ function readingSeq(){
   });
 }
 
+/* 오늘의 카드 3D 틸트 — 호버는 커서를, 터치는 누르는 동안만 손가락을 따라간다.
+   되돌림과 대기 중 흔들림(qwobble)은 CSS 몫이고 여기서는 .is-tilt 만 세운다.
+   views 위임이라 화면을 다시 그려도 다시 붙일 일이 없다. */
+(function(){
+  const TMAX = 10;               /* 최대 기울기(deg) */
+  let held = null;               /* 손가락이 누르고 있는 카드 */
+  const wrapOf = function(e){ return e.target && e.target.closest ? e.target.closest(".quint-tilt") : null; };
+  function tiltTo(w, e){
+    const b = w && w.querySelector(".tiltbox"); if (!b) return;
+    const r = b.getBoundingClientRect(); if (!r.width) return;
+    const px = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const py = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    const set = function(k, v){ b.style.setProperty(k, v); };
+    set("--ty", ((px - .5) * 2 * TMAX).toFixed(2) + "deg");
+    set("--tx", ((.5 - py) * 2 * TMAX).toFixed(2) + "deg");
+    set("--gx", (px * 100).toFixed(1) + "%");
+    set("--gy", (py * 100).toFixed(1) + "%");
+    w.classList.add("is-tilt");
+  }
+  function tiltOff(w){
+    if (!w) return;
+    w.classList.remove("is-tilt");
+    const b = w.querySelector(".tiltbox");
+    if (b){ b.style.setProperty("--tx", "0deg"); b.style.setProperty("--ty", "0deg"); }
+  }
+  const on = function(ev, fn){ views.addEventListener(ev, fn); };
+  on("pointerdown", function(e){
+    if (e.pointerType !== "touch") return;
+    const w = wrapOf(e); if (w){ held = w; tiltTo(w, e); }
+  });
+  on("pointermove", function(e){
+    if (held) return tiltTo(held, e);
+    if (e.pointerType === "touch") return;      /* 터치는 누르는 동안만 */
+    const w = wrapOf(e); if (w) tiltTo(w, e);
+  });
+  const release = function(){ tiltOff(held); held = null; };
+  on("pointerup", release);
+  on("pointercancel", release);
+  const leave = function(e){
+    if (held) return;
+    const w = wrapOf(e);
+    if (w && !(e.relatedTarget && w.contains(e.relatedTarget))) tiltOff(w);
+  };
+  on("pointerout", leave);
+  on("pointerleave", leave);
+})();
 /* =======================================================
    RENDER
    ======================================================= */

@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#150A11">
+<meta name="description" content="타로포 22장 x 상태 4종 x KO/JA 문장 검토표.">
+<title>타로포 상태 문장표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&family=Noto+Serif+KR:wght@500;700&display=swap">
+<style>
+:root{
+  --plum:#4F0720; --plum2:#2C0F1D; --rose:#F9236C; --blush:#FFC9DB;
+  --cream:#FFF4F8; --gilt:#D9A94B; --gilt-dim:#8A6B2E;
+  --bg:#150A11; --fg:#F6E9F0; --rose-ink:#FF6C9C;
+  --line:rgba(217,169,75,.18);
+  --line-soft:rgba(217,169,75,.10);
+  --muted:rgba(255,201,219,.58);
+  --muted2:rgba(255,201,219,.42);
+  --serif:"Noto Serif KR","Nanum Myeongjo",Georgia,"Times New Roman",serif;
+  --sans:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --disp:"Cormorant Garamond","Noto Serif KR",Georgia,serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --pad:clamp(14px,3vw,32px); --wrap:1340px; --bar-h:58px;
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;min-height:100dvh;overflow-x:hidden;
+  background:#150A11;
+  background-image:
+    radial-gradient(76% 44% at 50% 0%, rgba(79,7,32,.58), transparent 66%),
+    radial-gradient(58% 36% at 50% 100%, rgba(44,15,29,.66), transparent 74%);
+  background-attachment:fixed;
+  color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.7;
+  -webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word;
+}
+h1{margin:0;font-family:var(--serif);font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+p,ul,ol{margin:0}
+ul{list-style:none;padding:0}
+button{cursor:pointer;background:none;border:0;padding:0;font:inherit;color:inherit}
+input{font:inherit;color:inherit}
+code{font-family:var(--mono);font-size:.86em}
+:focus-visible{outline:2px solid var(--rose);outline-offset:3px;border-radius:4px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+[lang="ja"]{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;word-break:normal;overflow-wrap:normal;line-break:normal}
+
+/* ---- language visibility (default: both) ---- */
+.t{display:block}
+.t-ja{margin-top:5px;color:var(--muted);font-size:.92em}
+#app[data-lang="ko"] .t-ja{display:none}
+#app[data-lang="ja"] .t-ko{display:none}
+#app[data-lang="ja"] .t-ja{margin-top:0;color:inherit;font-size:1em}
+
+/* ---- header ---- */
+.pg-head{padding:clamp(26px,4.4vw,46px) var(--pad) 0}
+.pg-head-in{max-width:var(--wrap);margin:0 auto}
+.eyebrow{font-family:var(--disp);font-weight:600;font-size:12.5px;line-height:1;letter-spacing:.34em;color:var(--gilt);text-transform:uppercase}
+.pg-title{margin-top:12px;font-size:clamp(24px,4.2vw,36px);line-height:1.28;color:var(--cream)}
+.pg-sub{margin-top:9px;font-size:14px;letter-spacing:.01em;color:var(--muted);max-width:52ch}
+.legend{margin-top:20px;display:grid;gap:8px 18px;grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+.lg-item{padding-left:11px;border-left:2px solid rgba(217,169,75,.34)}
+.lg-item.is-base{border-left-color:rgba(217,169,75,.16)}
+.lg-name{font-size:13.5px;color:var(--cream);line-height:1.5}
+.lg-item.is-base .lg-name{color:rgba(255,244,248,.66)}
+.lg-name .t-ja{margin-top:2px;font-size:.9em}
+.lg-sig{display:block;margin-top:3px;font-family:var(--mono);font-size:11px;line-height:1.5;letter-spacing:0;color:var(--muted2);word-break:break-all}
+.prio{margin-top:16px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
+.prio .pr-label{color:var(--gilt);letter-spacing:.08em;font-size:11.5px}
+.prio code{color:rgba(255,244,248,.78)}
+.prio .pr-arrow{color:var(--gilt-dim)}
+.pg-rule{max-width:var(--wrap);margin:clamp(16px,2.2vw,24px) auto 0;height:1px;border:0;background:linear-gradient(90deg,rgba(217,169,75,.5),rgba(217,169,75,.06))}
+
+/* ---- sticky control bar ---- */
+.bar{position:sticky;top:0;z-index:40;margin-top:0;padding:10px var(--pad);
+  background:rgba(21,10,17,.9);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);
+  border-bottom:1px solid var(--line)}
+.bar-in{max-width:var(--wrap);margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.seg{display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(44,15,29,.7);border:1px solid rgba(217,169,75,.26)}
+.seg-btn{font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.1em;line-height:1;padding:7px 13px;border-radius:999px;color:rgba(255,201,219,.62);transition:color .18s ease,background .18s ease;white-space:nowrap}
+.seg-btn[lang="ko"]{font-family:var(--sans);letter-spacing:.02em;font-size:12.5px}
+.seg-btn:hover{color:var(--blush)}
+.seg-btn.is-on{background:var(--plum);color:var(--cream)}
+.q{flex:1 1 200px;min-width:0;max-width:320px;padding:8px 12px;border-radius:999px;
+  background:rgba(44,15,29,.5);border:1px solid rgba(217,169,75,.22);color:var(--cream);font-size:13.5px;line-height:1.3}
+.q::placeholder{color:rgba(255,201,219,.4)}
+.q:focus{border-color:rgba(217,169,75,.5);outline:none}
+.cnt{font-family:var(--mono);font-size:11.5px;color:var(--muted2);white-space:nowrap}
+.btn{margin-left:auto;padding:8px 15px;border-radius:999px;border:1px solid rgba(217,169,75,.38);
+  color:var(--gilt);font-size:12.5px;letter-spacing:.02em;white-space:nowrap;transition:background .18s ease,color .18s ease}
+.btn:hover{background:rgba(217,169,75,.14);color:var(--cream)}
+
+/* ---- table ---- */
+.pg-main{padding:clamp(16px,2.4vw,26px) var(--pad) 0}
+.tablewrap{max-width:var(--wrap);margin:0 auto;overflow:auto;
+  border:1px solid var(--line);border-radius:12px;background:rgba(27,14,22,.42);
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+table{width:100%;min-width:1040px;border-collapse:separate;border-spacing:0;table-layout:fixed}
+thead th{position:sticky;top:0;z-index:3;background:#25121D;
+  padding:11px 14px;text-align:left;vertical-align:bottom;
+  font-family:var(--sans);font-weight:500;font-size:12.5px;line-height:1.45;color:var(--cream);
+  border-bottom:1px solid var(--line);border-right:1px solid var(--line-soft)}
+thead th:last-child{border-right:0}
+thead th.corner{left:0;z-index:5;font-family:var(--disp);font-weight:600;letter-spacing:.2em;font-size:12px;color:var(--gilt);text-transform:uppercase}
+thead th .t-ja{font-size:.88em}
+thead th.st-none{color:rgba(255,244,248,.6);background:#221019}
+.cap{display:block;margin-top:4px;font-family:var(--mono);font-size:10px;letter-spacing:0;color:var(--muted2);font-weight:400}
+tbody tr{--rowbg:#190C14}
+tbody tr:nth-child(even){--rowbg:#1D1018}
+tbody tr{background:var(--rowbg)}
+tbody th,tbody td{padding:12px 14px;vertical-align:top;border-bottom:1px solid var(--line);border-right:1px solid var(--line-soft);font-weight:400;text-align:left}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+tbody td:last-child{border-right:0}
+th.cardcell{position:sticky;left:0;z-index:2;background:var(--rowbg);border-right:1px solid var(--line)}
+.num{display:block;font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.1em;color:var(--gilt);line-height:1.2}
+.nm{display:block;margin-top:4px;font-size:13.5px;line-height:1.5;color:var(--cream)}
+.nm .t-ja{font-size:.9em}
+td.c{font-size:13.5px;line-height:1.62;color:rgba(246,233,240,.94)}
+td.c.st-none{color:rgba(246,233,240,.66);background:rgba(217,169,75,.035)}
+.lbl{display:none}
+tbody tr.is-off{display:none !important}
+.empty{max-width:var(--wrap);margin:14px auto 0;font-size:13px;color:var(--muted)}
+
+/* ---- footer ---- */
+.pg-foot{max-width:var(--wrap);width:100%;margin:clamp(28px,4vw,48px) auto 0;
+  padding:20px var(--pad) calc(32px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(217,169,75,.16);
+  font-size:12.5px;line-height:1.8;color:rgba(255,201,219,.55);letter-spacing:.02em}
+
+/* ---- toast ---- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);z-index:80;
+  padding:9px 17px;border-radius:999px;background:rgba(44,15,29,.94);border:1px solid rgba(217,169,75,.34);
+  color:var(--cream);font-size:12.5px;white-space:nowrap;box-shadow:0 12px 30px -12px rgba(0,0,0,.8);
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.toast.is-on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---- mobile: stacked ---- */
+@media (max-width:640px){
+  .tablewrap{max-height:none !important;overflow:visible;border:0;background:none;border-radius:0}
+  table,thead,tbody,tr,th,td{display:block;width:auto}
+  table{min-width:0}
+  thead{display:none}
+  colgroup{display:none}
+  tbody tr{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--rowbg)}
+  tbody th,tbody td{border-right:0;border-bottom:0;padding:11px 14px}
+  th.cardcell{position:static;background:rgba(79,7,32,.34);border-bottom:1px solid var(--line);
+    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .num{display:inline-block;margin:0}
+  .nm{margin-top:0}
+  tbody td.c{border-top:1px solid var(--line-soft)}
+  tbody td.c.st-none{background:rgba(217,169,75,.05)}
+  .lbl{display:block;margin-bottom:4px;font-size:11px;line-height:1.4;letter-spacing:.03em;color:var(--gilt)}
+  .lbl .t-ja{margin-top:1px;color:rgba(217,169,75,.6);font-size:.94em}
+  .btn{margin-left:0}
+  .q{max-width:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div id="app" data-lang="both">
+
+  <header class="pg-head">
+    <div class="pg-head-in">
+      <p class="eyebrow">TAROPO &middot; STATE COPY</p>
+      <h1 class="pg-title">상태별 오늘의 한 걸음</h1>
+      <p class="pg-sub">카드는 말투를 정하고, 상태는 할 일을 정한다. 하루에 한 걸음만.</p>
+      <ul class="legend"><li class="lg-item"><span class="lg-name"><span class="t t-ko">대화 안 시작한 매칭 있음</span><span class="t t-ja" lang="ja">まだ話し始めてないマッチがある</span></span><span class="lg-sig">GET_CHAT_ROOMS: source=match, state=notStarted</span></li><li class="lg-item"><span class="lg-name"><span class="t t-ko">답장 안 한 방 있음</span><span class="t t-ja" lang="ja">返事してない部屋がある</span></span><span class="lg-sig">GET_CHAT_ROOMS: unreadCount&gt;0</span></li><li class="lg-item"><span class="lg-name"><span class="t t-ko">반응 안 한 받은 좋아요 있음</span><span class="t t-ja" lang="ja">返してないいいねがある</span></span><span class="lg-sig">GET_USER_BEHAVIOR_STATS: usersWhoAttendMe.received &gt; reacted</span></li><li class="lg-item is-base"><span class="lg-name"><span class="t t-ko">열린 고리 없음 (기본)</span><span class="t t-ja" lang="ja">開いている輪がない（基本）</span></span><span class="lg-sig">cards.json up.action</span></li></ul>
+      <p class="prio"><span class="pr-label">우선순위</span><code>unopened_match</code><span class="pr-arrow" aria-hidden="true"> → </span><code>unanswered_room</code><span class="pr-arrow" aria-hidden="true"> → </span><code>pending_like</code><span class="pr-arrow" aria-hidden="true"> → </span><code>none</code></p>
+    </div>
+    <hr class="pg-rule">
+  </header>
+
+  <div class="bar">
+    <div class="bar-in">
+      <div class="seg" role="group" aria-label="언어 전환">
+        <button type="button" class="seg-btn" data-lang-btn="ko" aria-pressed="false">KO</button>
+        <button type="button" class="seg-btn" data-lang-btn="ja" aria-pressed="false">JA</button>
+        <button type="button" class="seg-btn is-on" lang="ko" data-lang-btn="both" aria-pressed="true">둘 다</button>
+      </div>
+      <input type="search" class="q" id="q" placeholder="카드 번호·이름으로 거르기" aria-label="카드 번호 또는 이름으로 거르기" autocomplete="off">
+      <span class="cnt" id="cnt"></span>
+      <button type="button" class="btn" id="tsvBtn">복사용 TSV</button>
+    </div>
+  </div>
+
+  <main class="pg-main">
+    <div class="tablewrap" id="wrap">
+      <table id="tbl">
+        <caption class="sr-only">카드 22장 x 상태 4종 문장표</caption>
+        <colgroup><col class="col-card"><col class="col-st"><col class="col-st"><col class="col-st"><col class="col-st"></colgroup>
+        <thead><tr id="thr"></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="noHit" hidden>해당하는 카드가 없습니다.</p>
+  </main>
+
+  <footer class="pg-foot">v1 &middot; 2026-09-04 &middot; 문장은 검토 후 cards.json에 states로 편입 예정</footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+const D = {"states":[{"id":"unopened_match","ko":"대화 안 시작한 매칭 있음","ja":"まだ話し始めてないマッチがある","signal":"GET_CHAT_ROOMS: source=match, state=notStarted"},{"id":"unanswered_room","ko":"답장 안 한 방 있음","ja":"返事してない部屋がある","signal":"GET_CHAT_ROOMS: unreadCount>0"},{"id":"pending_like","ko":"반응 안 한 받은 좋아요 있음","ja":"返してないいいねがある","signal":"GET_USER_BEHAVIOR_STATS: usersWhoAttendMe.received > reacted"},{"id":"none","ko":"열린 고리 없음 (기본)","ja":"開いている輪がない（基本）","signal":"cards.json up.action"}],"priority":["unopened_match","unanswered_room","pending_like","none"],"cards":[{"n":"0","ko":"시작의 알","ja":"はじまりのタマゴ","v":{"unopened_match":{"ko":"새로 이어진 사람에게 첫 인사 하나","ja":"新しくつながった人に、まずひとことあいさつ"},"unanswered_room":{"ko":"답 미룬 방, 짧게라도 한 줄","ja":"返事を置いてた部屋に、短くても一行"},"pending_like":{"ko":"나를 좋아한 사람 프로필 한 번 열어보기","ja":"好きって言ってくれた人のプロフィール、一度開いてみて"},"none":{"ko":"처음 보는 프로필에 좋아요 하나","ja":"はじめて見る人に「いいね」をひとつ"}}},{"n":"I","ko":"마법의 첫마디","ja":"魔法のひとこと","v":{"unopened_match":{"ko":"말 걸까 말까 하던 방, 오늘 첫마디 보내기","ja":"迷ってた部屋に、今日ひとこと送ってみて"},"unanswered_room":{"ko":"떠오른 답 그대로, 다듬지 말고 보내기","ja":"浮かんだ返事、直さずそのまま送って"},"pending_like":{"ko":"받은 좋아요에 한마디 붙여 답하기","ja":"もらったいいねに、ひとこと添えて返して"},"none":{"ko":"떠오른 첫마디 그대로 보내기","ja":"浮かんだひとことをそのまま送る"}}},{"n":"II","ko":"속마음의 책","ja":"心のなかの本","v":{"unopened_match":{"ko":"이유 없이 끌리는 매칭 하나에 먼저 인사","ja":"なんとなく気になるマッチに、先にあいさつ"},"unanswered_room":{"ko":"뭐라 답할지 재지 말고 직감대로 한 줄","ja":"返事を考えすぎず、直感で一行"},"pending_like":{"ko":"받은 좋아요 중 직감이 반응한 사람에게 답하기","ja":"もらったいいねの中で、直感が動いた人に返して"},"none":{"ko":"조언 구하지 말고 직감대로 하나","ja":"助言を求めず直感でひとつ"}}},{"n":"III","ko":"따뜻한 정원","ja":"あたたかい庭","v":{"unopened_match":{"ko":"안 시작한 방 하나에 가볍게 안부 심기","ja":"まだ始まってない部屋に、軽くあいさつを植えて"},"unanswered_room":{"ko":"서두르지 말고 다정한 답 한 줄","ja":"急がず、やさしい返事を一行"},"pending_like":{"ko":"받은 좋아요, 급하게 고르지 말고 천천히 보기","ja":"もらったいいね、急いで選ばずゆっくり見て"},"none":{"ko":"오늘은 프로필 그대로 두기","ja":"今日はプロフィールをそのままにする"}}},{"n":"IV","ko":"흔들리지 않는 자리","ja":"ゆるがない椅子","v":{"unopened_match":{"ko":"내 기준에 맞는 매칭 하나 골라 먼저 인사","ja":"自分の基準に合うマッチをひとつ選んで、先にあいさつ"},"unanswered_room":{"ko":"답장은 오늘 안에, 짧아도 분명하게","ja":"返事は今日中に、短くてもはっきり"},"pending_like":{"ko":"받은 좋아요 중 기준에 맞는 사람에게만 답하기","ja":"もらったいいねは、基準に合う人にだけ返して"},"none":{"ko":"프로필에 '이건 꼭'인 것 한 줄 적기","ja":"プロフィールに「これだけは」を一行書く"}}},{"n":"V","ko":"오래된 약속","ja":"ふるい約束","v":{"unopened_match":{"ko":"매칭된 지 오래된 방부터 정중히 인사","ja":"マッチしてから時間がたった部屋から、ていねいにあいさつ"},"unanswered_room":{"ko":"기다리게 한 방에 사과 한 줄 넣어 답하기","ja":"待たせた部屋に、ひとこと謝ってから返して"},"pending_like":{"ko":"받은 좋아요에 늦더라도 예의 있게 답하기","ja":"もらったいいねに、遅くても礼儀正しく返して"},"none":{"ko":"미루던 답장, 격식 갖춰 보내기","ja":"後回しの返信を、きちんと丁寧に送る"}}},{"n":"VI","ko":"설렘의 고동","ja":"ときめきの鼓動","v":{"unopened_match":{"ko":"제일 설레는 매칭에 먼저 말 걸기","ja":"いちばんときめくマッチに、先に声をかけて"},"unanswered_room":{"ko":"답장 미룬 방 중 마음 가는 곳부터","ja":"返事を置いてた部屋の中で、気になるところから"},"pending_like":{"ko":"받은 좋아요 중 심장이 먼저 반응한 사람에게 답하기","ja":"もらったいいねの中で、心が先に動いた人に返して"},"none":{"ko":"제일 먼저 떠오른 사람에게 메시지","ja":"最初に浮かんだ人にメッセージ"}}},{"n":"VII","ko":"직진의 전차","ja":"まっすぐな戦車","v":{"unopened_match":{"ko":"매칭 중 하나 골라 바로 인사","ja":"マッチをひとつ選んで、すぐあいさつ"},"unanswered_room":{"ko":"미루던 답장, 지금 보내기","ja":"先延ばしにしてた返事、今送って"},"pending_like":{"ko":"마음 가는 좋아요에 바로 좋아요로 답하기","ja":"気になるいいねに、そのままいいねで返して"},"none":{"ko":"고민하던 좋아요 지금 보내기","ja":"迷っていた「いいね」を今送る"}}},{"n":"VIII","ko":"부드러운 힘","ja":"やわらかい力","v":{"unopened_match":{"ko":"안 시작한 방에 부담 없는 안부 하나","ja":"始まってない部屋に、気軽なあいさつをひとつ"},"unanswered_room":{"ko":"재촉 없이, 부드러운 답 한 줄","ja":"急かさずに、やわらかい返事を一行"},"pending_like":{"ko":"받은 좋아요에 가볍게 고맙다는 인사","ja":"もらったいいねに、軽くありがとうのあいさつ"},"none":{"ko":"재촉 대신 다정한 안부 하나","ja":"催促のかわりにやさしいひとこと"}}},{"n":"IX","ko":"등불 든 밤","ja":"ランタンの夜","v":{"unopened_match":{"ko":"다 하려 말고 하나만 골라 조용히 인사","ja":"全部じゃなくて、ひとつ選んで静かにあいさつ"},"unanswered_room":{"ko":"읽고 둔 메시지, 오늘 밤 안에 답하기","ja":"読んだまま置いた一通、今夜のうちに返して"},"pending_like":{"ko":"받은 좋아요 목록을 천천히 한 번 보기","ja":"もらったいいねの一覧を、ゆっくり一度見て"},"none":{"ko":"내 프로필을 남 보듯 읽어보기","ja":"自分のプロフィールを他人の目で読む"}}},{"n":"X","ko":"운명의 수레바퀴","ja":"運命の輪","v":{"unopened_match":{"ko":"평소라면 안 골랐을 매칭에 먼저 인사","ja":"いつもなら選ばないマッチに、先にあいさつ"},"unanswered_room":{"ko":"오래 둔 방일수록 오늘 답해보기","ja":"長く置いた部屋ほど、今日返してみて"},"pending_like":{"ko":"예상 밖의 좋아요에 한 번 답해보기","ja":"意外ないいねに、一度返してみて"},"none":{"ko":"평소 안 보던 추천도 열어보기","ja":"普段見ないおすすめも開いてみる"}}},{"n":"XI","ko":"기울지 않는 저울","ja":"かたむかない天秤","v":{"unopened_match":{"ko":"상대가 먼저 왔던 방이면 이번엔 내가 인사","ja":"相手から来てた部屋なら、今度は自分からあいさつ"},"unanswered_room":{"ko":"받은 만큼 돌려주는 답장 하나","ja":"もらった分だけ返す返事をひとつ"},"pending_like":{"ko":"받은 좋아요, 이번엔 내가 먼저 답하기","ja":"もらったいいね、今度は自分から返して"},"none":{"ko":"먼저 연락한 횟수, 한번 세어보기","ja":"先に連絡した回数を、いちど数えてみる"}}},{"n":"XII","ko":"거꾸로 보기","ja":"さかさまの景色","v":{"unopened_match":{"ko":"안 시작한 방의 상대를 처음처럼 다시 보고 인사","ja":"始まってない部屋の相手を、初めて見るつもりで見てからあいさつ"},"unanswered_room":{"ko":"답 대신 질문 하나로 대화 뒤집기","ja":"返事のかわりに、質問をひとつ投げてみて"},"pending_like":{"ko":"받은 좋아요, 사진 말고 소개글부터 읽기","ja":"もらったいいねは、写真より先に自己紹介を読んで"},"none":{"ko":"상대 프로필을 처음처럼 다시 보기","ja":"相手のプロフィールを初見のつもりで見直す"}}},{"n":"XIII","ko":"허물벗기","ja":"脱皮の日","v":{"unopened_match":{"ko":"마음 없는 방은 놓고, 남은 하나에 인사","ja":"気持ちのない部屋は置いて、残ったひとつにあいさつ"},"unanswered_room":{"ko":"습관처럼 미루던 답, 오늘 끊고 보내기","ja":"くせで先延ばしにしてた返事、今日で断ち切って送って"},"pending_like":{"ko":"마음 없는 좋아요는 흘려보내고 하나에만 답하기","ja":"気持ちのないいいねは流して、ひとつだけ返して"},"none":{"ko":"안 되던 방식 하나 그만두기","ja":"うまくいかないやり方をひとつやめる"}}},{"n":"XIV","ko":"섞이는 물","ja":"まざりあう水","v":{"unopened_match":{"ko":"안 시작한 방에 상대 속도에 맞춘 짧은 인사","ja":"始まってない部屋に、相手のペースに合わせた短いあいさつ"},"unanswered_room":{"ko":"상대 답장 길이에 맞춰 답하기","ja":"相手の返事の長さに合わせて返して"},"pending_like":{"ko":"받은 좋아요에 급하지 않게 하루 안에 답하기","ja":"もらったいいねに、あわてず今日中に返して"},"none":{"ko":"상대 답장 속도에 내 속도 맞추기","ja":"相手の返信ペースに合わせてみる"}}},{"n":"XV","ko":"달콤한 사슬","ja":"あまい鎖","v":{"unopened_match":{"ko":"미련 남은 곳 말고 새 매칭에 인사","ja":"未練のあるところじゃなく、新しいマッチにあいさつ"},"unanswered_room":{"ko":"매달리는 답 말고 담백한 한 줄","ja":"すがる返事じゃなく、さらっと一行"},"pending_like":{"ko":"익숙한 타입만 고르지 말고 다른 좋아요 보기","ja":"いつものタイプばかりじゃなく、ほかのいいねも見て"},"none":{"ko":"미련 남은 프로필, 오늘은 안 보기","ja":"未練のあるプロフィールを、今日は見ない"}}},{"n":"XVI","ko":"탑의 균열","ja":"塔のひび","v":{"unopened_match":{"ko":"안 시작한 방 중 마음 없는 곳은 정리하기","ja":"始まってない部屋のうち、気持ちのないところは片づけて"},"unanswered_room":{"ko":"오래 멈춘 방은 닫고, 살아 있는 방에 답하기","ja":"長く止まった部屋は閉じて、生きてる部屋に返して"},"pending_like":{"ko":"마음 없는 좋아요는 흘려보내기","ja":"気持ちのないいいねは流して"},"none":{"ko":"오래 멈춘 대화 닫기","ja":"長く止まった会話を閉じる"}}},{"n":"XVII","ko":"별빛","ja":"星あかり","v":{"unopened_match":{"ko":"나를 먼저 좋아해 준 매칭에 인사","ja":"先に好きって言ってくれたマッチにあいさつ"},"unanswered_room":{"ko":"기다려 준 사람에게 답장 먼저","ja":"待ってくれてた人に、返事を先に"},"pending_like":{"ko":"받은 좋아요 중 한 명에게 답하기","ja":"もらったいいねの中から、ひとりに返して"},"none":{"ko":"받은 좋아요 확인하기","ja":"届いた「いいね」を確認する"}}},{"n":"XVIII","ko":"달그림자","ja":"月かげ","v":{"unopened_match":{"ko":"헷갈리는 매칭, 돌려 말고 먼저 인사하기","ja":"迷うマッチほど、遠回しにせず先にあいさつ"},"unanswered_room":{"ko":"애매하게 둔 답, 직접 묻는 말로 보내기","ja":"あいまいに置いた返事、まっすぐ聞く言葉で送って"},"pending_like":{"ko":"진심인지 궁금한 좋아요, 프로필 다시 읽기","ja":"本気か気になるいいね、プロフィールをもう一度読んで"},"none":{"ko":"돌려 말하지 말고 직접 묻기","ja":"遠回しにせず直接たずねる"}}},{"n":"XIX","ko":"햇살","ja":"太陽のひざし","v":{"unopened_match":{"ko":"가장 마음 가는 매칭에 밝게 먼저 인사","ja":"いちばん気になるマッチに、明るく先にあいさつ"},"unanswered_room":{"ko":"미루던 답, 밝은 한마디로 보내기","ja":"先延ばしの返事、明るいひとことで送って"},"pending_like":{"ko":"받은 좋아요에 활짝 좋아요로 답하기","ja":"もらったいいねに、にっこりいいねで返して"},"none":{"ko":"가장 마음 가는 사람에게 먼저","ja":"いちばん気になる人へ先に"}}},{"n":"XX","ko":"다시 울리는 종","ja":"もういちど鳴る鐘","v":{"unopened_match":{"ko":"오래 둔 매칭에 다시 인사해 보기","ja":"長く置いたマッチに、もう一度あいさつしてみて"},"unanswered_room":{"ko":"끊긴 줄 알았던 방에 답장 다시 잇기","ja":"切れたと思ってた部屋に、返事をもう一度つないで"},"pending_like":{"ko":"지나쳤던 좋아요, 다시 한번 보기","ja":"見逃してたいいね、もう一度見てみて"},"none":{"ko":"아쉬웠던 인연에 다시 인사","ja":"気になっていた人にもういちど挨拶"}}},{"n":"XXI","ko":"세계의 문","ja":"世界のとびら","v":{"unopened_match":{"ko":"매칭 하나에 인사하고 만날 얘기까지 꺼내기","ja":"マッチひとつにあいさつして、会う話まで出してみて"},"unanswered_room":{"ko":"답장에 만날 날짜 제안 넣기","ja":"返事に、会う日の提案を入れて"},"pending_like":{"ko":"받은 좋아요에 답하고 대화까지 열기","ja":"もらったいいねに返して、会話まで開いて"},"none":{"ko":"만날 날짜 먼저 제안하기","ja":"会う日をこちらから提案する"}}}]};
+</script>
+<script>
+(function(){
+  var APP=document.getElementById('app'), TB=document.getElementById('tb'),
+      THR=document.getElementById('thr'), WRAP=document.getElementById('wrap'),
+      Q=document.getElementById('q'), CNT=document.getElementById('cnt'),
+      NOHIT=document.getElementById('noHit'), TOAST=document.getElementById('toast');
+
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function two(ko,ja){
+    return '<span class="t t-ko">'+esc(ko)+'</span><span class="t t-ja" lang="ja">'+esc(ja)+'</span>';
+  }
+
+  /* ---- head ---- */
+  var h='<th scope="col" class="corner">Card</th>';
+  D.states.forEach(function(s){
+    var base=(s.id==='none');
+    h+='<th scope="col" class="st'+(base?' st-none':'')+'" data-sid="'+s.id+'">'+two(s.ko,s.ja)
+      +(base?'<span class="cap">cards.json up.action</span>':'')+'</th>';
+  });
+  THR.innerHTML=h;
+
+  /* ---- body ---- */
+  var rowsHTML='';
+  D.cards.forEach(function(c){
+    var r='<tr data-num="'+esc(c.n)+'" data-ko="'+esc(c.ko)+'" data-ja="'+esc(c.ja)+'">';
+    r+='<th scope="row" class="cardcell"><span class="num">'+esc(c.n)+'</span>'
+      +'<span class="nm">'+two(c.ko,c.ja)+'</span></th>';
+    D.states.forEach(function(s){
+      var v=c.v[s.id], base=(s.id==='none');
+      r+='<td class="c'+(base?' st-none':'')+'" data-sid="'+s.id+'">'
+        +'<span class="lbl">'+two(s.ko,s.ja)+'</span>'
+        +'<span class="val">'+two(v.ko,v.ja)+'</span></td>';
+    });
+    TB.insertAdjacentHTML('beforeend', r+'</tr>');
+  });
+  var ROWS=Array.prototype.slice.call(TB.querySelectorAll('tr'));
+
+  /* ---- language ---- */
+  function setLang(l){
+    APP.dataset.lang=l;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-lang-btn]'), function(b){
+      var on=(b.dataset.langBtn===l);
+      b.classList.toggle('is-on',on);
+      b.setAttribute('aria-pressed', on?'true':'false');
+    });
+  }
+  document.querySelector('.seg').addEventListener('click', function(e){
+    var b=e.target.closest('[data-lang-btn]'); if(b) setLang(b.dataset.langBtn);
+  });
+
+  /* ---- filter ---- */
+  function applyFilter(){
+    var q=Q.value.trim(), n=0;
+    if(!q){ ROWS.forEach(function(r){ r.classList.remove('is-off'); }); n=ROWS.length; }
+    else{
+      var U=q.toUpperCase(), L=q.toLowerCase();
+      var exact=ROWS.some(function(r){ return r.dataset.num===U; });
+      ROWS.forEach(function(r){
+        var hit = exact ? (r.dataset.num===U)
+          : (r.dataset.num.indexOf(U)>=0 || r.dataset.ko.toLowerCase().indexOf(L)>=0 || r.dataset.ja.toLowerCase().indexOf(L)>=0);
+        r.classList.toggle('is-off', !hit);
+        if(hit) n++;
+      });
+    }
+    CNT.textContent=n+' / '+ROWS.length;
+    NOHIT.hidden=(n>0);
+    return n;
+  }
+  Q.addEventListener('input', applyFilter);
+
+  /* ---- TSV ---- */
+  function pick(ko,ja){
+    var l=APP.dataset.lang;
+    return l==='ko'?ko : l==='ja'?ja : (ko+' / '+ja);
+  }
+  function txt(el,cls){ var n=el.querySelector(cls); return n?n.textContent.trim():''; }
+  function buildTSV(){
+    var head=['카드'];
+    D.states.forEach(function(s){ head.push(pick(s.ko,s.ja)); });
+    var lines=[head.join('\t')];
+    ROWS.forEach(function(r){
+      if(r.classList.contains('is-off')) return;
+      var f=[r.dataset.num+' '+pick(r.dataset.ko,r.dataset.ja)];
+      Array.prototype.forEach.call(r.querySelectorAll('td.c .val'), function(v){
+        f.push(pick(txt(v,'.t-ko'), txt(v,'.t-ja')).replace(/[\t\r\n]+/g,' '));
+      });
+      lines.push(f.join('\t'));
+    });
+    return lines.join('\n');
+  }
+  window.__tsv=buildTSV;
+
+  var tid;
+  function toast(msg){
+    TOAST.textContent=msg; TOAST.classList.add('is-on');
+    clearTimeout(tid); tid=setTimeout(function(){ TOAST.classList.remove('is-on'); }, 2200);
+  }
+  function legacyCopy(s){
+    var ta=document.createElement('textarea');
+    ta.value=s; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    var ok=false; try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
+    document.body.removeChild(ta); return ok;
+  }
+  document.getElementById('tsvBtn').addEventListener('click', function(){
+    var s=buildTSV(), n=s.split('\n').length-1;
+    var done=function(){ toast('TSV 복사됨 · '+n+'행'); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s).then(done, function(){
+        toast(legacyCopy(s) ? 'TSV 복사됨 · '+n+'행' : '복사 실패 — 브라우저 권한을 확인하세요');
+      });
+    } else {
+      toast(legacyCopy(s) ? 'TSV 복사됨 · '+n+'행' : '복사 실패 — 브라우저 권한을 확인하세요');
+    }
+  });
+
+  /* ---- table viewport height (desktop only) ---- */
+  function fit(){
+    if(window.innerWidth<=640){ WRAP.style.maxHeight=''; return; }
+    var bar=document.querySelector('.bar');
+    var bh=bar?bar.getBoundingClientRect().height:58;
+    WRAP.style.maxHeight=Math.max(320, window.innerHeight-bh-46)+'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  applyFilter();
+})();
+</script>
+</body>
+</html>

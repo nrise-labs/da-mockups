@@ -220,7 +220,7 @@ a{color:var(--rose-ink)}
 .btn.gilt:hover{background:rgba(217,169,75,.12)}
 
 /* ---- browse carousel ---- */
-.v-browse{position:relative;align-items:center;justify-content:flex-start;gap:0;padding-top:18px}
+.v-browse{position:relative;align-items:center;justify-content:flex-start;gap:0;padding-top:70px}
 .bz-slots{display:flex;gap:16px;justify-content:center;flex:none}
 .bz-slot{display:flex;flex-direction:column;align-items:center;gap:8px;width:54px}
 .bz-slot-in{
@@ -249,7 +249,7 @@ a{color:var(--rose-ink)}
 .bz-title em{font-style:normal;color:var(--rose)}
 
 /* full-bleed inside the 24px screen padding so neighbours peek off both edges */
-.bz-stage{position:relative;align-self:stretch;height:288px;margin:16px -24px 0;overflow:hidden;flex:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.bz-stage{position:relative;align-self:stretch;height:288px;margin:70px -24px 0;overflow:hidden;flex:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .bz-track{position:absolute;inset:0}
 .bz-cell{
   position:absolute;left:50%;top:50%;width:132px;height:208px;margin:-104px 0 0 -66px;
@@ -270,37 +270,51 @@ a{color:var(--rose-ink)}
 .bz-fly{position:absolute;z-index:30;pointer-events:none;transition:transform 780ms cubic-bezier(.22,1,.36,1)}
 .bz-fly .cardback{width:100%;height:100%;border-radius:12px}
 
-/* ---- 온보딩 제스처 큐 (페이지 로드당 1회) ----
-   문장 대신 몸짓으로 알린다: 무대 좌·우 가장자리의 금박 셰브론이 차례로
-   두 번씩 튕기고 걷힌다(총 2.4s). 스와이프·탭이 들어오면 그 자리에서 사라진다. */
+/* ---- 엣지 페이드 ----
+   무대 양 끝을 화면 바닥색으로 한 뼘(28px) 덮는다. 바깥쪽 카드가 잘린 게 아니라
+   화면 밖으로 이어지는 것처럼 보이게 하는 신호다. 큐보다 뒤(z 24)에 깔린다. */
+.bz-edge{position:absolute;top:0;bottom:0;width:28px;z-index:24;pointer-events:none}
+.bz-edge-l{left:0;background:linear-gradient(to right, var(--ink), rgba(27,14,22,0))}
+.bz-edge-r{right:0;background:linear-gradient(to left, var(--ink), rgba(27,14,22,0))}
+
+/* ---- 스와이프 큐 (뽑기 화면에 상시) ----
+   문장 대신 몸짓으로 알린다: 좌·우 가장자리의 금박 셰브론 한 쌍이 가운데 카드 높이에서
+   같은 박자로 바깥을 향해 숨쉰다(1.6s). 첫 넘김 뒤에는 진폭 절반·2.6s 로 소리를 낮추되
+   사라지지는 않는다. 셰브론은 그 자체가 탭 타깃이다 — 44×44, 한 장 넘긴다.
+   가장자리 여백 6px = 바깥 진폭과 같다. 가장 크게 밀려도 탭 영역이 화면 안에 온전히 남는다.
+   덮개(.bz-cue)는 절대 포인터를 먹지 않는다 — 오직 버튼만 받는다. */
 .bz-cue{position:absolute;inset:0;z-index:26;pointer-events:none}
-.bz-cue svg{
-  position:absolute;top:50%;margin-top:-15px;width:30px;height:30px;
-  color:var(--gilt);opacity:0;filter:drop-shadow(0 2px 7px rgba(9,4,7,.7));
+.bz-cue-btn{
+  position:absolute;top:50%;margin-top:-30px;width:44px;height:44px;padding:0;
+  display:grid;place-items:center;border:0;background:none;
+  color:var(--gilt);opacity:.35;pointer-events:auto;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
 }
-.bz-cue-l{left:8px}
-.bz-cue-r{right:8px}
-.bz-cue.is-l .bz-cue-l{animation:cuenudgeL 900ms ease-out both}
-.bz-cue.is-lout .bz-cue-l{animation:cuefade 300ms ease both}
-.bz-cue.is-r .bz-cue-r{animation:cuenudgeR 900ms ease-out both}
-.bz-cue.is-rout .bz-cue-r{animation:cuefade 300ms ease both}
-@keyframes cuenudgeL{
-  0%{opacity:0;transform:translateX(0)}
-  14%{opacity:.95;transform:translateX(0)}
-  28%{transform:translateX(-14px)}
-  50%{opacity:.95;transform:translateX(0)}
-  78%{transform:translateX(-14px)}
-  100%{opacity:.95;transform:translateX(0)}
+.bz-cue-btn svg{width:30px;height:30px;filter:drop-shadow(0 2px 7px rgba(9,4,7,.7))}
+.bz-cue-l{left:6px;animation:cuebreathL 1600ms ease-in-out infinite}
+.bz-cue-r{right:6px;animation:cuebreathR 1600ms ease-in-out infinite}
+.bz-cue.is-calm .bz-cue-l{animation:cuecalmL 2600ms ease-in-out infinite}
+.bz-cue.is-calm .bz-cue-r{animation:cuecalmR 2600ms ease-in-out infinite}
+@keyframes cuebreathL{
+  0%{opacity:.35;transform:translateX(0)}
+  50%{opacity:.8;transform:translateX(-6px)}
+  100%{opacity:.35;transform:translateX(0)}
 }
-@keyframes cuenudgeR{
-  0%{opacity:0;transform:translateX(0)}
-  14%{opacity:.95;transform:translateX(0)}
-  28%{transform:translateX(14px)}
-  50%{opacity:.95;transform:translateX(0)}
-  78%{transform:translateX(14px)}
-  100%{opacity:.95;transform:translateX(0)}
+@keyframes cuebreathR{
+  0%{opacity:.35;transform:translateX(0)}
+  50%{opacity:.8;transform:translateX(6px)}
+  100%{opacity:.35;transform:translateX(0)}
 }
-@keyframes cuefade{from{opacity:.95}to{opacity:0}}
+@keyframes cuecalmL{
+  0%{opacity:.35;transform:translateX(0)}
+  50%{opacity:.35;transform:translateX(-3px)}
+  100%{opacity:.35;transform:translateX(0)}
+}
+@keyframes cuecalmR{
+  0%{opacity:.35;transform:translateX(0)}
+  50%{opacity:.35;transform:translateX(3px)}
+  100%{opacity:.35;transform:translateX(0)}
+}
 
 .cardback{
   width:100%;height:100%;border-radius:11px;position:relative;display:grid;place-items:center;
@@ -705,13 +719,13 @@ a{color:var(--rose-ink)}
      남는 경로가 없도록 CSS 쪽에서도 한 번 더 닫는다. */
   .sq-rise,.sq-in,.quint .cardface.sq-pop,.bz-slots.is-seal .bz-slot-in,
   .bz-slot.is-land .bz-slot-in,.v-browse.is-fade,
-  .bz-cue.is-l .bz-cue-l,.bz-cue.is-lout .bz-cue-l,
-  .bz-cue.is-r .bz-cue-r,.bz-cue.is-rout .bz-cue-r,
   .rv-teller.is-hop,.rv-teller.is-div .rv-fx .rv-ring,
   .rv-teller.is-conc .rv-fx .rv-ball,.rv-teller.is-conc .rv-fx .rv-sw,
   .rv-teller.is-real .rv-fx .rv-sp{animation:none !important}
   .sq-off{opacity:1 !important;pointer-events:auto !important}
   .quint-reader.is-weaving{animation:none !important}
+  /* 스와이프 큐 — 숨쉬지 않고 그대로 서 있는다. */
+  .bz-cue-btn{animation:none !important;opacity:.45 !important;transform:none !important}
   .rv-teller,.rv-col .flipwrap,.rv-col .face.back .cardback{transition:none !important}
   *{scroll-behavior:auto}
 }
@@ -1008,12 +1022,17 @@ const RV_FX = TL_OPEN + 'rv-fx' + TL_ATTR +
   '</g>' +
   '</svg>';
 
-/* ① 온보딩 제스처 큐 — 무대 좌·우 가장자리의 금박 셰브론 한 쌍. */
-const CUE_ATTR = '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" ' +
+/* ① 스와이프 큐 — 무대 좌·우 가장자리의 금박 셰브론 한 쌍. 탭 타깃을 겸한다.
+   낭독 순서에는 넣지 않는다(aria-hidden) — 스크린리더는 #bzPrev/#bzNext 로 넘긴다. */
+const CUE_ATTR = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" ' +
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+function cueBtnHTML(side, d){
+  return '<button type="button" class="bz-cue-btn bz-cue-' + side + '" data-cue="' + side +
+    '" tabindex="-1" aria-hidden="true"><svg' + CUE_ATTR + '<path d="' + d + '"/></svg></button>';
+}
 const CUE_HTML =
-  '<svg class="bz-cue-l' + CUE_ATTR + '<path d="M15.5 4.5 8 12l7.5 7.5"/></svg>' +
-  '<svg class="bz-cue-r' + CUE_ATTR + '<path d="M8.5 4.5 16 12l-7.5 7.5"/></svg>';
+  cueBtnHTML("l", "M15.5 4.5 8 12l7.5 7.5") +
+  cueBtnHTML("r", "M8.5 4.5 16 12l-7.5 7.5");
 
 /* =======================================================
    I18N — phone UI, controls, deck table headers
@@ -1350,6 +1369,9 @@ function viewBrowse(){
     '<div class="bz-head">' + browseHeadHTML() + '</div>' +
     '<div class="bz-stage" id="bzStage">' +
       '<div class="bz-track" id="bzTrack" aria-hidden="true">' + cells + '</div>' +
+      '<i class="bz-edge bz-edge-l" aria-hidden="true"></i>' +
+      '<i class="bz-edge bz-edge-r" aria-hidden="true"></i>' +
+      '<div class="bz-cue' + (cueCalm ? " is-calm" : "") + '" id="bzCue">' + CUE_HTML + '</div>' +
       '<button type="button" class="bz-pick" id="bzPick" aria-label="' + esc(t().pickAria) + '"></button>' +
     '</div>' +
     '<button type="button" class="sr-only" id="bzPrev">' + esc(t().prevCard) + '</button>' +
@@ -1375,38 +1397,17 @@ let lastD = null;
 let bzSwallowClick = false;   /* 스와이프·탭이 처리한 제스처 뒤 따라온 click 1회 삼킴(중앙 버튼 이중 트리거 방지) */
 
 /* -------------------------------------------------------
-   ① 온보딩 제스처 큐 — 페이지 로드당 1회, 첫 브라우즈 진입에만.
-   좌 셰브론이 두 번, 이어서 우 셰브론이 두 번 튕기고 걷힌다(총 2.4s).
-   스와이프든 탭이든 손이 닿는 순간 그 자리에서 사라진다.
-   타이머는 전부 seq 컨트롤러 위에 산다 — 뷰 전환·스킵에서 같이 죽는다.
+   ① 스와이프 큐 — 뽑기 화면에 있는 동안 계속 서 있는다(마크업은 viewBrowse 가 낸다).
+   상태는 둘뿐이다: 처음의 숨쉬기(1.6s, .35↔.8), 그리고 한 장이라도 넘긴 뒤의
+   조용한 상태(2.6s, 진폭 절반, .35 고정). 어느 쪽이든 사라지지 않는다.
+   타이머도 시퀀스도 쓰지 않는다 — 전부 CSS 루프다.
    ------------------------------------------------------- */
-let cueShown = false;   /* 페이지 로드당 1회 — 다시 뽑기에서는 나오지 않는다 */
-let cueOn = false;
-function killCue(){
-  if (!cueOn) return;
-  cueOn = false;
-  seqCancel();
+let cueCalm = false;   /* 첫 넘김 뒤 — 페이지가 사는 동안 조용한 상태로 남는다 */
+function cueSettle(){
+  if (cueCalm) return;
+  cueCalm = true;
   const c = $("bzCue");
-  if (c && c.parentNode) c.parentNode.removeChild(c);
-}
-function cueSeq(){
-  const st = $("bzStage");
-  if (!st || REDUCED.matches || cueShown) return;
-  cueShown = true;
-  const cue = document.createElement("div");
-  cue.id = "bzCue";
-  cue.className = "bz-cue";
-  cue.setAttribute("aria-hidden", "true");
-  cue.innerHTML = CUE_HTML;
-  st.appendChild(cue);
-  cueOn = true;
-  seqStart([
-    { at: 0,    fn: function(){ cue.classList.add("is-l"); } },
-    { at: 900,  fn: function(){ cue.classList.remove("is-l"); cue.classList.add("is-lout"); } },
-    { at: 1200, fn: function(){ cue.classList.add("is-r"); } },
-    { at: 2100, fn: function(){ cue.classList.remove("is-r"); cue.classList.add("is-rout"); } },
-    { at: 2400, fn: function(){ cueOn = false; if (cue.parentNode) cue.parentNode.removeChild(cue); } }
-  ]);
+  if (c) c.classList.add("is-calm");
 }
 
 /* soft = 빈자리 메우기. 한 칸 넘는 이동이라도 끊지 않고 같은 곡선으로 흘려보낸다. */
@@ -1465,8 +1466,8 @@ function stepFocus(from, step){
   return ring[((at + step) % ring.length + ring.length) % ring.length];
 }
 function slideBy(dir){
-  killCue();
   if (state.view !== "browse" || state.flying || sealing) return;
+  cueSettle();   /* 한 장이라도 넘겼으면 큐는 할 말을 했다 — 조용한 상태로 남는다 */
   state.focus = stepFocus(state.focus, dir);
   layoutCarousel();
 }
@@ -1515,7 +1516,6 @@ function flyToSlot(slotIdx, done){
   ]);
 }
 function pickCard(){
-  killCue();
   if (state.view !== "browse" || state.flying || sealing) return;
   if (state.picked.length >= 3) return;
   if (isGone(state.focus)) return;   /* 이미 소진된 자리 — 다시 고를 수 없다 */
@@ -2311,7 +2311,6 @@ function readingSeq(){
 function render(){
   stopTyping();
   seqCancel();   /* 지난 화면의 연출은 여기서 끝난다 — 유령 타이머 금지 */
-  cueOn = false; /* 큐의 DOM 은 아래 innerHTML 교체로 같이 사라진다 */
   liveAbort();   /* 진행 중이던 라이브 생성도 함께 — 다시 뽑기·뷰 전환·언어 토글의 공통 출구 */
   let html = "";
   if (state.view === "entry") html = viewEntry();
@@ -2357,7 +2356,8 @@ function render(){
       let sx = 0, sy = 0, st = 0, pid = -1, decided = false, horiz = false, lx = 0, lt = 0, vx = 0;
       const clampF = function(v){ return v < -FOLLOW_MAX ? -FOLLOW_MAX : (v > FOLLOW_MAX ? FOLLOW_MAX : v); };
       stage.addEventListener("pointerdown", function(e){
-        killCue();   /* 손이 닿는 순간 큐는 할 일을 다했다 */
+        /* 셰브론은 제 몫의 탭을 가진다 — 스와이프·중앙 선택 판정에서 아예 빼 둔다. */
+        if (e.target.closest && e.target.closest(".bz-cue-btn")){ pid = -1; return; }
         if (state.flying || sealing) return;
         pid = e.pointerId; sx = e.clientX; sy = e.clientY; st = e.timeStamp;
         lx = sx; lt = st; vx = 0; decided = false; horiz = false; bzSwallowClick = false;
@@ -2406,7 +2406,6 @@ function render(){
     const bzPrev = $("bzPrev"), bzNext = $("bzNext");
     if (bzPrev) bzPrev.addEventListener("click", function(){ slideBy(-1); });
     if (bzNext) bzNext.addEventListener("click", function(){ slideBy(1); });
-    if (state.picked.length === 0) cueSeq();   /* 페이지당 1회 — cueShown 이 막는다 */
   }
   /* 연출은 한 리딩에 한 번뿐이다. 이미 지나간 화면(언어 전환 등)은 최종 상태로 그린다. */
   if (state.view === "reveal"){
@@ -2641,6 +2640,9 @@ function bootFresh(){
 views.addEventListener("click", function(e){
   /* 스와이프/탭이 이미 처리한 제스처 뒤에 따라온 click 은 삼킨다(중앙 선택 이중 트리거 방지). */
   if (bzSwallowClick){ bzSwallowClick = false; return; }
+  /* 셰브론 탭 = 스와이프와 같은 한 걸음. 중앙 선택보다 먼저 가로챈다. */
+  const cueBtn = e.target.closest(".bz-cue-btn");
+  if (cueBtn){ slideBy(cueBtn.getAttribute("data-cue") === "r" ? 1 : -1); return; }
   if (e.target.closest("#bzPick")){ pickCard(); return; }
   const sel = e.target.closest("[data-sel]");
   if (sel){ setStorySel(sel.getAttribute("data-sel")); return; }
@@ -2676,7 +2678,6 @@ window.addEventListener("keydown", function(e){
   if (state.view !== "browse") return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;
-  killCue();
   if (e.key === "ArrowLeft"){ e.preventDefault(); slideBy(-1); }
   else if (e.key === "ArrowRight"){ e.preventDefault(); slideBy(1); }
   else if (e.key === "Enter"){

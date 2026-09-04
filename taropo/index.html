@@ -124,11 +124,11 @@ a{color:var(--rose-ink)}
    좌표계: 200×200 박스. 래스터는 (25,34)에 150px. 실측 실루엣 — 정수리 y=43,
    발끝 y=174(높이 131), 최대폭 y=126 에서 113(x 43~156), 중심선 x=100. */
 .v-entry{align-items:center;justify-content:center;gap:0;text-align:center}
-/* 첫 화면 제목 — 화면 맨 위에 붙고 금박 실선 한 줄이 받친다. 본체(.entry-body)는
-   남은 공간의 가운데를 지키되 56px 만큼 더 내려앉는다. 리빌의 타로포(#rvTeller 안의
-   .teller)는 이 규칙 밖이라 그대로다 — 여백은 전부 .v-entry 안에만 걸린다. */
+/* 첫 화면 제목 — 히어로 묶음(.entry-body)의 첫 줄이다. 금박 실선 한 줄이 받치고
+   30px 만큼 띄운 뒤 타로포가 온다. 묶음은 통째로 가운데를 지키되 36px 내려앉는다.
+   리빌의 타로포(#rvTeller 안의 .teller)는 이 규칙 밖이라 그대로다. */
 .entry-title{
-  flex:none;margin:6px 0 0;font-family:var(--serif);font-weight:500;
+  flex:none;margin:0 0 30px;font-family:var(--serif);font-weight:500;
   font-size:28px;line-height:1.3;letter-spacing:.04em;color:var(--cream);
 }
 .entry-title::after{
@@ -136,7 +136,7 @@ a{color:var(--rose-ink)}
   background:var(--gilt);opacity:.6;
 }
 .entry-body{
-  flex:1 0 auto;width:100%;margin-top:56px;
+  flex:1 0 auto;width:100%;margin-top:36px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
 }
 .teller{position:relative;width:200px;height:200px;margin-bottom:2px}
@@ -1276,8 +1276,8 @@ function viewEntry(){
      기록이 없거나 날짜가 넘어갔으면 지금까지처럼 "오늘의 카드 뽑기"다. */
   const seen = !!recToday();
   return '<div class="v v-entry">' +
-    '<h1 class="entry-title">' + esc(t().entryTitle) + '</h1>' +
     '<div class="entry-body">' +
+      '<h1 class="entry-title">' + esc(t().entryTitle) + '</h1>' +
       '<div class="teller"><div class="teller-in float">' +
         TELLER_BACK +
         '<img class="sepo" src="' + SEPO.sepo_baby_idle + '" alt="' + esc(t().sepoAlt) + '">' +

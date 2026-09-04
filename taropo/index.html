@@ -998,6 +998,7 @@ const T = {
     quintLab:"오늘의 카드",
     axis:function(label){ return "오늘의 축이 이 카드야 — " + label + " 자리에도 같은 카드가 나왔어."; },
     toStory:"스토리에 올리기",
+    home:"오늘은 여기까지",
     redraw:"다시 뽑기",
     storyTitle:"스토리 만들기",
     storySub:"올릴 카드를 고르고, 한마디는 바꿔도 돼.",
@@ -1034,6 +1035,7 @@ const T = {
     quintLab:"今日の一枚",
     axis:function(label){ return "今日の軸はこのカード — " + label + "の場所にも同じカードが出てたよ。"; },
     toStory:"ストーリーに載せる",
+    home:"今日はここまで",
     redraw:"もういちど引く",
     storyTitle:"ストーリーをつくる",
     storySub:"載せるカードを選んで、ひとことは変えていいよ。",
@@ -1604,6 +1606,9 @@ function viewReading(){
     '</div>' +
     '<div class="rd-actions">' +
       '<button type="button" class="btn primary sm" data-go="story">' + esc(t().toStory) + '</button>' +
+      /* 하루의 출구 — 첫 화면으로 돌아간다. 오늘 기록이 남아 있으므로 그 화면의 CTA 는
+         "오늘의 카드 보기"이고, 누르면 같은 리딩이 그대로 다시 열린다. */
+      '<button type="button" class="btn ghost sm" data-act="home">' + esc(t().home) + '</button>' +
     '</div></div>';
 }
 
@@ -1649,6 +1654,7 @@ function viewStory(){
       '<div class="st-posted">' + storyFrame() +
         '<span class="st-badge">' + esc(t().postedBadge) + '</span></div>' +
       '<div class="rd-actions">' +
+        '<button type="button" class="btn primary sm" data-act="home">' + esc(t().home) + '</button>' +
         '<button type="button" class="btn ghost sm" data-go="reading">' + esc(t().backToReading) + '</button>' +
       '</div>' +
     '</div>';
@@ -2412,6 +2418,7 @@ function act(a){
   if (a === "start" || a === "redraw") startDraw();
   else if (a === "view") openToday();   /* 오늘의 카드 보기 — 저장된 리딩을 되살린다 */
   else if (a === "post") postStory();
+  else if (a === "home") goHome();   /* 오늘은 여기까지 — 첫 화면으로 */
 }
 
 /* =======================================================
@@ -2470,6 +2477,15 @@ function openToday(){
   render();
   finishTyping();   /* 저장된 리딩은 다시 타이핑하지 않는다 — 통째로 보인다 */
   if (typeof renderTrace === "function") renderTrace();   /* 문서 페이지에만 있다 */
+}
+/* 하루의 출구 — 리딩·스토리에서 첫 화면으로 돌아간다. 하루 기록은 지우지 않으므로
+   첫 화면 CTA 는 "오늘의 카드 보기"가 되고, 다시 누르면 openToday() 가 같은 리딩을 연다.
+   ARMED 는 건드리지 않는다 — startDraw()/openToday() 가 각자 다시 세운다.
+   state.posted 도 그대로 둔다 — 스토리로 다시 들어갈 때 openStory() 가 정한다. */
+function goHome(){
+  liveAbort();
+  state.view = "entry";
+  render();
 }
 
 /* 언어는 기기 설정을 따른다 — 토글은 없다. ?lang=ko|ja 가 있으면 그것이 이긴다

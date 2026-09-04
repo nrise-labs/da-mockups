@@ -88,24 +88,8 @@ a{color:var(--rose-ink)}
 .stage{width:100%;display:flex;justify-content:center;isolation:isolate}
 .phone-scale{transform-origin:top center}
 
-/* 언어 토글 — 두 모드 모두 우상단 고정. 자두빛 반투명 알약. */
-.langpill{
-  position:fixed;z-index:60;top:16px;right:16px;
-  display:flex;gap:2px;padding:3px;border-radius:999px;
-  background:rgba(44,15,29,.66);
-  border:1px solid rgba(217,169,75,.26);
-  -webkit-backdrop-filter:blur(10px) saturate(1.25);
-  backdrop-filter:blur(10px) saturate(1.25);
-  box-shadow:0 1px 2px rgba(0,0,0,.34), 0 10px 26px -14px rgba(0,0,0,.72);
-}
-.seg-btn{
-  font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.12em;
-  line-height:1;padding:6px 13px;border-radius:999px;
-  color:rgba(255,201,219,.6);
-  transition:color .18s ease, background .18s ease;
-}
-.seg-btn:hover{color:var(--blush)}
-.seg-btn.is-on{background:var(--plum);color:var(--cream)}
+/* 언어 토글은 앱 빌드에 없다 — 언어는 기기 설정(navigator.language)이 정하고,
+   ?lang=ko|ja 로만 덮어쓴다. 문서 페이지(sepo_tarot.html)에는 토글이 그대로 있다. */
 
 /* ---- device ---- */
 .phone{
@@ -128,32 +112,9 @@ a{color:var(--rose-ink)}
   content:"";position:absolute;inset:0;pointer-events:none;z-index:5;
   background:radial-gradient(120% 60% at 50% -8%, rgba(249,35,108,.16), transparent 58%);
 }
-.notch{
-  position:absolute;left:50%;top:12px;transform:translateX(-50%);
-  width:112px;height:30px;border-radius:16px;background:#050205;z-index:8;
-}
-
-.statusbar{
-  height:46px;flex:none;display:flex;align-items:center;justify-content:space-between;
-  padding:0 24px;font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:.06em;
-  color:var(--blush);position:relative;z-index:9;
-}
-.sb-time{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums lining-nums}
-.sb-right{display:flex;align-items:center;gap:5px}
-.sb-bar{width:3px;background:var(--blush);border-radius:1px;opacity:.75}
-.sb-batt{width:20px;height:10px;border:1px solid var(--blush);border-radius:3px;opacity:.75;position:relative}
-.sb-batt::after{content:"";position:absolute;inset:2px;right:6px;background:var(--blush);border-radius:1px}
-
-.appbar{
-  flex:none;padding:2px 24px 12px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;
-  border-bottom:1px solid rgba(217,169,75,.16);position:relative;z-index:6;
-}
-.appbar-t{font-family:var(--serif);font-weight:500;font-size:15px;letter-spacing:.02em;color:var(--cream)}
-.appbar-d{font-family:var(--sans);font-size:11.5px;font-weight:500;letter-spacing:.05em;color:var(--gilt);font-variant-numeric:tabular-nums}
-
 .views{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;position:relative;z-index:6}
 .views::-webkit-scrollbar{display:none}
-.v{padding:22px 24px 34px;min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
+.v{padding:calc(22px + env(safe-area-inset-top, 12px)) 24px 34px;min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 
 /* ---- entry ----
@@ -212,7 +173,6 @@ a{color:var(--rose-ink)}
   transform:rotate(45deg);
 }
 .entry-btns{display:flex;flex-direction:column;gap:11px;width:100%;margin-top:32px}
-.entry-foot{margin-top:18px;font-size:11.5px;letter-spacing:.02em;color:rgba(255,201,219,.6)}
 
 .btn{
   display:flex;align-items:center;justify-content:center;gap:9px;
@@ -246,7 +206,7 @@ a{color:var(--rose-ink)}
 .bz-slot.is-now .bz-slot-lab{color:var(--rose)}
 .bz-slot.is-on .bz-slot-lab{color:var(--gilt)}
 /* 자리 칩이 카드를 받는 순간 — 도착 200ms 뒤 은은한 글로우 한 번. 펄스도 흔들림도 없다. */
-.bz-slot.is-land .bz-slot-in{animation:bzland 300ms ease both}
+.bz-slot.is-land .bz-slot-in{animation:bzland 380ms ease both}
 @keyframes bzland{
   0%{box-shadow:0 0 0 0 rgba(217,169,75,0)}
   50%{box-shadow:0 0 15px 2px rgba(217,169,75,.5)}
@@ -266,7 +226,7 @@ a{color:var(--rose-ink)}
   transition:transform 320ms cubic-bezier(.22,1,.36,1), opacity 320ms ease;
 }
 /* 빈자리를 메우는 재배치 — 비행과 같은 곡선, 같은 길이로 조용히 흐른다. */
-.bz-track.is-refill .bz-cell{transition-duration:520ms, 380ms}
+.bz-track.is-refill .bz-cell{transition-duration:780ms, 380ms}
 .bz-cell .cardback{width:100%;height:100%;border-radius:12px}
 .bz-cell .cardback .sigil{width:46px;height:46px}
 .bz-cell.is-focus .cardback{animation:sway 5.4s ease-in-out infinite}
@@ -276,7 +236,7 @@ a{color:var(--rose-ink)}
 .bz-pick{position:absolute;left:50%;top:50%;width:132px;height:208px;margin:-104px 0 0 -66px;z-index:15;border-radius:12px}
 /* 자리로 가는 길은 곡선 하나다 — 이동·축소·회전이 같은 transition 을 탄다.
    오버슈트도, 착지 뒤의 2차 바운스도 없다. */
-.bz-fly{position:absolute;z-index:30;pointer-events:none;transition:transform 520ms cubic-bezier(.22,1,.36,1)}
+.bz-fly{position:absolute;z-index:30;pointer-events:none;transition:transform 780ms cubic-bezier(.22,1,.36,1)}
 .bz-fly .cardback{width:100%;height:100%;border-radius:12px}
 
 /* ---- 온보딩 제스처 큐 (페이지 로드당 1회) ----
@@ -573,8 +533,6 @@ a{color:var(--rose-ink)}
 }
 .qs-lab{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.18em;color:var(--rose)}
 .qs-txt{font-family:var(--serif);font-weight:500;font-size:15px;line-height:1.6;color:var(--cream)}
-/* 여운 한 줄 — 리딩의 마지막. 라벨도 상자도 없이 조용히 닫는다. */
-.rd-glow{margin-top:18px;max-width:29ch;font-size:12px;line-height:1.9;color:rgba(255,201,219,.6)}
 .rd-relock{margin-top:14px;text-align:center;font-size:11.5px;line-height:1.7;color:rgba(255,201,219,.5)}
 
 /* ---- 공개 페이싱 (v6.2) ----
@@ -681,7 +639,8 @@ a{color:var(--rose-ink)}
 
 /* ============================================================
    MOBILE — 베젤을 벗고 화면이 뷰포트가 된다.
-   기기 규칙(.phone/.screen/.statusbar …) 다음에 와야 이긴다.
+   기기 규칙(.phone/.screen …) 다음에 와야 이긴다.
+   상단 크롬(노치·상태바·앱바)은 없다 — 안전영역은 .v 의 padding-top 이 받는다.
    ============================================================ */
 @media (max-width:480px){
   body{background:var(--ink);background-image:none}
@@ -689,25 +648,13 @@ a{color:var(--rose-ink)}
   .stage{height:100dvh}
   .phone-scale{width:100%;transform:none !important}
   .phone{
-    width:100%;height:100dvh;border-radius:0;padding:0;
+    width:100vw;height:100dvh;border-radius:0;padding:0;
     background:var(--ink);box-shadow:none;
   }
   .phone::after{display:none}
-  .notch{display:none}
-  .screen{width:100%;height:100dvh;border-radius:0}
-  /* 상태바 오른쪽 자리는 언어 알약이 쓴다 — 신호·배터리 목업은 물러난다. */
-  .statusbar{
-    height:calc(46px + env(safe-area-inset-top));
-    padding-top:env(safe-area-inset-top);
-    padding-right:92px;
-  }
-  .sb-right{display:none}
+  .screen{width:100%;height:100%;border-radius:0}
   .v{padding-bottom:calc(34px + env(safe-area-inset-bottom))}
   .toast{bottom:calc(34px + env(safe-area-inset-bottom))}
-  .langpill{
-    top:calc(env(safe-area-inset-top) + 8px);
-    right:calc(env(safe-area-inset-right) + 14px);
-  }
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -734,29 +681,10 @@ a{color:var(--rose-ink)}
 
 <div id="app" data-lang="ko">
 
-  <div class="langpill" role="group" aria-label="언어 전환">
-    <button type="button" class="seg-btn is-on" data-lang-btn="ko" aria-pressed="true">KO</button>
-    <button type="button" class="seg-btn" data-lang-btn="ja" aria-pressed="false">JA</button>
-  </div>
-
   <div class="stage" id="stage">
     <div class="phone-scale" id="phoneScale">
       <div class="phone ja-swap" id="phone" lang="ko">
-        <div class="notch"></div>
         <div class="screen">
-          <div class="statusbar">
-            <span class="sb-time" id="sbTime">21:04</span>
-            <span class="sb-right">
-              <span class="sb-bar" style="height:6px"></span>
-              <span class="sb-bar" style="height:8px"></span>
-              <span class="sb-bar" style="height:10px"></span>
-              <span class="sb-batt"></span>
-            </span>
-          </div>
-          <div class="appbar">
-            <span class="appbar-t" id="appTitle">세포 타로</span>
-            <span class="appbar-d" id="appDate">2026-09-01</span>
-          </div>
           <div class="views" id="views" aria-live="polite" aria-atomic="false"></div>
           <div class="toast" id="toast" role="status" aria-live="polite"></div>
         </div>
@@ -873,36 +801,42 @@ function prettyDate(key, lang){
   const w = WD[lang][d.getUTCDay()];
   return lang === "ja" ? (y+"年"+m+"月"+day+"日("+w+")") : (y+"년 "+m+"월 "+day+"일 ("+w+")");
 }
-function jstClock(){
-  const d = new Date(Date.now() + 9*3600*1000);
-  const hh = String(d.getUTCHours()).padStart(2,"0");
-  const mm = String(d.getUTCMinutes()).padStart(2,"0");
-  return hh + ":" + mm;
-}
 
 /* =======================================================
-   DAILY LOCK (localStorage)
-   키: sepo_tarot_v3:{userId} -> {"dateKey":"YYYY-MM-DD","done":true}
-   ⚠️ 이 사내 테스트 빌드에서는 아래 세 함수를 흐름에서 호출하지 않는다(락 해제).
-   본편 배선 그대로 남겨 두기 위해 정의만 유지한다. 샌드박스에서는 localStorage
-   접근 자체가 throw 할 수 있으므로 읽기·쓰기·삭제를 전부 try/catch 로 감싼다.
+   DAILY RECORD (localStorage)
+   키: sepo_tarot_v3:reading:{userId}
+   값: {dateKey, seedKey, draws:[{index,reversed,slot,pos}], quint, lang, readerText, ts}
+   userId 는 앱 브리지가 나중에 채운다(window.SEPO_USER_ID). 없으면 "local".
+   같은 날(JST)의 기록이 있으면 첫 화면 CTA 가 "오늘의 카드 보기"로 바뀌고,
+   누르면 저장된 리딩을 그대로 되살린다 — 새로 뽑지 않는다.
+   ⚠️ 테스터 탈출구: ?fresh=1 로 열면 오늘 기록을 지우고 새로 뽑는다.
+   샌드박스에서는 localStorage 접근 자체가 throw 할 수 있으므로 읽기·쓰기·삭제를
+   전부 try/catch 로 감싼다(v6.2 의 lockRead/lockWrite/lockClear 를 이 자리로 옮겼다).
    ======================================================= */
-const LOCK_PREFIX = "sepo_tarot_v3:";
-function lockRead(userId){
+const REC_PREFIX = "sepo_tarot_v3:reading:";
+function recUser(){
+  try { return String(window.SEPO_USER_ID || "local"); } catch (e){ return "local"; }
+}
+function recKey(){ return REC_PREFIX + recUser(); }
+function recRead(){
   try {
-    const raw = window.localStorage.getItem(LOCK_PREFIX + userId);
+    const raw = window.localStorage.getItem(recKey());
     if (!raw) return null;
     const o = JSON.parse(raw);
-    return (o && typeof o === "object") ? o : null;
+    return (o && typeof o === "object" && o.dateKey) ? o : null;
   } catch (e){ return null; }
 }
-function lockWrite(userId, dateKey){
-  try {
-    window.localStorage.setItem(LOCK_PREFIX + userId, JSON.stringify({ dateKey: dateKey, done: true }));
-  } catch (e){ /* 저장 불가 — 락 없이 계속 */ }
+function recWrite(rec){
+  try { window.localStorage.setItem(recKey(), JSON.stringify(rec)); }
+  catch (e){ /* 저장 불가 — 기록 없이 계속 */ }
 }
-function lockClear(userId){
-  try { window.localStorage.removeItem(LOCK_PREFIX + userId); } catch (e){ /* 삭제 불가 — 무시 */ }
+function recClear(){
+  try { window.localStorage.removeItem(recKey()); } catch (e){ /* 삭제 불가 — 무시 */ }
+}
+/* 오늘(JST 자정 기준)에 해당하는 기록만 돌려준다. 날짜가 넘어가면 null 이다. */
+function recToday(){
+  const r = recRead();
+  return (r && r.dateKey === jstKey(Date.now())) ? r : null;
 }
 
 /* =======================================================
@@ -1047,11 +981,10 @@ const CUE_HTML =
    ======================================================= */
 const T = {
   ko:{
-    appTitle:"세포 타로",
     charName:"타로포",
     greet:"안녕, 나는 타로포야.<br>오늘의 카드를 세 장 골라보자.",
     ctaDraw:"오늘의 카드 뽑기",
-    entryFoot:"하루에 한 번, 자정에 새 덱",
+    ctaView:"오늘의 카드 보기",
     ordinal:function(n){ return ["첫 번째 카드","두 번째 카드","세 번째 카드"][n] || "카드"; },
     prevCard:"이전 카드",
     nextCard:"다음 카드",
@@ -1085,11 +1018,10 @@ const T = {
     sepoAlt:"타로포"
   },
   ja:{
-    appTitle:"セポタロット",
     charName:"タロポ",
     greet:"こんにちは、タロポだよ。<br>今日のカードを三枚えらんでみて。",
     ctaDraw:"今日のカードを引く",
-    entryFoot:"一日に一回、夜中に新しいデッキ",
+    ctaView:"今日のカードを見る",
     ordinal:function(n){ return ["一枚目","二枚目","三枚目"][n] || "カード"; },
     prevCard:"前のカード",
     nextCard:"次のカード",
@@ -1209,16 +1141,6 @@ function readerLine(draws, quint, score){
     .replace(/\{q\}/g, DATA.cards[quint.index][state.lang].name);
 }
 
-/* 여운 한 줄 — 뽑힌 세 장의 번호 합으로 6줄 중 하나를 고른다(리딩마다 고정).
-   해석이 아니라 마무리 인사라서 카드 내용과 연결하지 않는다. */
-function afterglowLine(draws){
-  const A = DATA.synthesis.afterglow;
-  if (!A || !A.lines || !draws || !draws.length) return "";
-  let sum = 0;
-  for (let i = 0; i < draws.length; i++) sum += draws[i].index + 1;
-  return A.lines[sum % A.lines.length][state.lang];
-}
-
 /* =======================================================
    CARD FACE
    ======================================================= */
@@ -1324,7 +1246,9 @@ function cardBack(w){
    VIEW — entry
    ======================================================= */
 function viewEntry(){
-  /* 테스트 빌드는 락을 걸지 않는다 — 진입은 항상 뽑기 가능. */
+  /* 오늘 이미 뽑았으면 CTA 가 "오늘의 카드 보기"로 바뀐다 — 누르면 저장된 리딩이 열린다.
+     기록이 없거나 날짜가 넘어갔으면 지금까지처럼 "오늘의 카드 뽑기"다. */
+  const seen = !!recToday();
   return '<div class="v v-entry">' +
     '<div class="teller"><div class="teller-in float">' +
       TELLER_BACK +
@@ -1334,9 +1258,9 @@ function viewEntry(){
     '</div></div>' +
     '<div class="bubble bubble-c">' + t().greet + '</div>' +
     '<div class="entry-btns">' +
-      '<button type="button" class="btn primary" data-act="start"><span>' + esc(t().ctaDraw) + '</span></button>' +
+      '<button type="button" class="btn primary" data-act="' + (seen ? "view" : "start") + '">' +
+        '<span>' + esc(seen ? t().ctaView : t().ctaDraw) + '</span></button>' +
     '</div>' +
-    '<p class="entry-foot">' + esc(t().entryFoot) + '</p>' +
   '</div>';
 }
 
@@ -1503,7 +1427,7 @@ function offsetIn(el, root){
   while (n && n !== root){ x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
   return { x: x, y: y };
 }
-const FLY_MS = 520;        /* 비행 시간 — CSS .bz-fly transition 과 같은 값 */
+const FLY_MS = 780;        /* 비행 시간 — CSS .bz-fly transition 과 같은 값 */
 const LAND_GLOW_AT = 200;  /* 도착에서 자리 칩이 받는 글로우까지의 간격 */
 function flyToSlot(slotIdx, done){
   const wrap = $("browseWrap");
@@ -1577,7 +1501,7 @@ function pickCard(){
           const chip = w2 ? w2.querySelectorAll(".bz-slot")[slotIdx] : null;
           if (chip) chip.classList.add("is-land");
         } },
-      { at: 580, fn: function(){ if (trk) trk.classList.remove("is-refill"); } }
+      { at: 840, fn: function(){ if (trk) trk.classList.remove("is-refill"); } }
     ]);
   });
 }
@@ -1677,11 +1601,9 @@ function viewReading(){
         '<span class="qs-lab">' + esc(t().stepLab) + '</span>' +
         '<p class="qs-txt">' + esc(qCopy.body.action) + '</p>' +
       '</div>' +
-      '<p class="rd-glow">' + esc(afterglowLine(state.draws)) + '</p>' +
     '</div>' +
     '<div class="rd-actions">' +
       '<button type="button" class="btn primary sm" data-go="story">' + esc(t().toStory) + '</button>' +
-      '<button type="button" class="btn gilt sm" data-act="redraw">' + esc(t().redraw) + '</button>' +
     '</div></div>';
 }
 
@@ -1932,11 +1854,11 @@ function sealSeq(){
    ② 리빌 — 뒷면이 깔리고, 타로포가 점을 치고, 한 장씩 뒤집힌다.
    0     세 장이 뒷면으로 rise-in (300ms, 150ms 간격)
    450   타로포 등장 + 오버레이 점등(is-div) · 응시 ① 카드
-   750   응시 ② 카드      1050  응시 ③ 카드
-   1350  집중 — 중앙 복귀 · 눈 감은 프레임 · 수정구 펄스 · 궤도 3배속 · 소용돌이
-   2250  깨달음 — 눈 뜬 프레임 · 8px 홉 · 스파클 3개 · 궤도 원속도 복귀
-   2750  오버레이를 걷고 그대로 순차 플립 시작(각 600ms, 650ms 간격)
-   4900  "리딩 보기" 페이드인
+   1050  응시 ② 카드      1650  응시 ③ 카드
+   2250  집중 — 중앙 복귀 · 눈 감은 프레임 · 수정구 펄스 · 궤도 3배속 · 소용돌이
+   3150  깨달음 — 눈 뜬 프레임 · 8px 홉 · 스파클 3개 · 궤도 원속도 복귀
+   3650  오버레이를 걷고 그대로 순차 플립 시작(각 600ms, 650ms 간격)
+   5800  "리딩 보기" 페이드인
    화면 어디를 탭하든 남은 단계가 그 자리에서 전부 끝난다.
    ------------------------------------------------------- */
 const RV_PHASE = ["is-gaze0", "is-gaze1", "is-gaze2"];
@@ -1992,7 +1914,7 @@ function revealSeq(){
   sqHide(teller);
   sqHide(btn);
   const T0 = 450;          /* 몸짓의 0지점 = 타로포가 들어오는 순간 */
-  const FLIP0 = T0 + 2300; /* 몸짓 총길이 2.3s 뒤에 곧바로 플립 */
+  const FLIP0 = T0 + 3200; /* 몸짓 총길이 3.2s 뒤에 곧바로 플립 */
   const steps = [
     { at: T0, fn: function(){
         sqShow(teller, "sq-in");
@@ -2000,10 +1922,10 @@ function revealSeq(){
         gaze(0)();
       } },
     { at: 600, fn: function(){ sqUnarm(cols); } },
-    { at: T0 + 300,  fn: gaze(1) },
-    { at: T0 + 600,  fn: gaze(2) },
-    { at: T0 + 900,  fn: concentrate },
-    { at: T0 + 1800, fn: realize },
+    { at: T0 + 600,  fn: gaze(1) },
+    { at: T0 + 1200, fn: gaze(2) },
+    { at: T0 + 1800, fn: concentrate },
+    { at: T0 + 2700, fn: realize },
     { at: FLIP0,     fn: settle }
   ];
   for (let i = 0; i < flips.length; i++) steps.push({ at: FLIP0 + i * 650, fn: flipAt(i) });
@@ -2171,6 +2093,7 @@ function readerFill(node, done){
     if (stale()) return;
     close();
     state.readerLive[state.lang] = line;
+    recSetReader(line);   /* 하루 기록의 리더의 말도 같이 갱신 */
     node.classList.remove("is-weaving");
     node.setAttribute("data-full", line);
     node.textContent = line;
@@ -2184,7 +2107,7 @@ function readerFill(node, done){
     const kept = liveCut(liveClean(streamed), LIVE_MIN);
     close();
     node.classList.remove("is-weaving");
-    if (kept) state.readerLive[state.lang] = kept;
+    if (kept){ state.readerLive[state.lang] = kept; recSetReader(kept); }
     node.setAttribute("data-full", kept || tmpl);
   };
 
@@ -2249,9 +2172,8 @@ function readingSeq(){
   const card = pick(".quint .cardface");
   const late = [pick(".cf-badge-out"), pick(".quint-axis"), pick(".quint-text"),
                 pick(".quint-step"), pick(".rd-actions")];
-  const glow = pick(".rd-glow");
 
-  [div, wx, reader, card, glow].forEach(sqHide);
+  [div, wx, reader, card].forEach(sqHide);
   late.forEach(sqHide);
   for (let i = 0; i < blocks.length; i++) sqArm(blocks[i], "sq-rise");
 
@@ -2274,7 +2196,6 @@ function readingSeq(){
         sqShow(reader);
         sqShow(card, "sq-pop");
         late.forEach(function(el){ sqShow(el, "sq-in"); });
-        seqAfter(360, function(){ sqShow(glow, "sq-in"); });
       } }
   ]);
   typeNodes(lead ? [lead] : [], function(){
@@ -2406,8 +2327,6 @@ function render(){
     else { ARMED.reading = true; readingSeq(); }
   }
 
-  $("appTitle").textContent = t().appTitle;
-  $("appDate").textContent = prettyDate(state.dateKey, state.lang);
 }
 
 function syncChrome(){
@@ -2486,11 +2405,99 @@ function go(to){
     ARMED.reading = (state.view !== "reveal");
     state.view = "reading";
     render();
+    recSave();   /* 하루 기록 — 리딩에 도달한 순간 남긴다 */
   }
 }
 function act(a){
   if (a === "start" || a === "redraw") startDraw();
+  else if (a === "view") openToday();   /* 오늘의 카드 보기 — 저장된 리딩을 되살린다 */
   else if (a === "post") postStory();
+}
+
+/* =======================================================
+   DAILY RECORD — 저장 · 복원 · 부팅
+   ======================================================= */
+/* 리딩에 도달한 순간의 상태를 하루 기록으로 남긴다. 같은 날 앱을 다시 열면 이
+   기록이 첫 화면 CTA 를 "오늘의 카드 보기"로 바꾸고 openToday() 가 되살린다. */
+function recSave(){
+  if (!state.draws.length || !state.quint) return;
+  recWrite({
+    dateKey: state.dateKey,
+    seedKey: state.seedKey,
+    draws: state.draws.map(function(d){
+      return { index: d.index, reversed: !!d.reversed, slot: d.slot, pos: d.position.id };
+    }),
+    quint: state.quint,
+    lang: state.lang,
+    readerText: state.readerLive[state.lang] || null,
+    ts: Date.now()
+  });
+}
+/* 리더의 말이 라이브로 확정되면 기록의 그 한 줄만 갈아끼운다 — 같은 리딩일 때만. */
+function recSetReader(line){
+  const r = recRead();
+  if (!r || !line || r.seedKey !== state.seedKey) return;
+  r.readerText = line;
+  r.lang = state.lang;
+  recWrite(r);
+}
+/* 저장된 하루 기록으로 리딩 화면을 곧바로 연다 — 뽑기도, 공개 연출도,
+   라이브 생성도 열리지 않는다(ARMED 를 미리 세워 두는 것이 그 자물쇠다).
+   readerText 가 없으면 사람이 쓴 문장 틀이 그 자리를 지킨다. */
+function openToday(){
+  const r = recToday();
+  if (!r || !r.draws || !r.draws.length){ startDraw(); return; }
+  const P = positions();
+  state.seedKey = r.seedKey || null;
+  state.dateKey = r.dateKey;
+  state.deck = state.seedKey ? shuffledDeck(state.seedKey) : [];
+  state.picked = r.draws.map(function(d){ return d.slot; });
+  state.draws = r.draws.map(function(d, i){
+    let p = P[i];
+    for (let k = 0; k < P.length; k++) if (P[k].id === d.pos) p = P[k];
+    return { index: d.index, reversed: !!d.reversed, position: p, slot: d.slot };
+  });
+  state.quint = (r.quint && typeof r.quint.index === "number") ? r.quint : quintOf(state.draws);
+  state.readerLive = { ko:null, ja:null };
+  if (r.readerText) state.readerLive[r.lang || state.lang] = r.readerText;
+  state.posted = false;
+  state.storySel = "quint";
+  state.capEdited = false;
+  sealing = false;
+  ARMED.reveal = true;
+  ARMED.reading = true;
+  state.view = "reading";
+  render();
+  finishTyping();   /* 저장된 리딩은 다시 타이핑하지 않는다 — 통째로 보인다 */
+  if (typeof renderTrace === "function") renderTrace();   /* 문서 페이지에만 있다 */
+}
+
+/* 언어는 기기 설정을 따른다 — 토글은 없다. ?lang=ko|ja 가 있으면 그것이 이긴다
+   (QA·공유 링크용). 한국어 로케일만 ko, 그 밖에는 전부 ja 다. */
+function bootLang(){
+  let q = "";
+  try { q = String(new URL(window.location.href).searchParams.get("lang") || "").toLowerCase(); }
+  catch (e){ q = ""; }
+  if (q === "ko" || q === "ja") state.lang = q;
+  else {
+    const alt = (navigator.languages && navigator.languages.length) ? navigator.languages[0] : "";
+    const nav = String(navigator.language || alt || "").toLowerCase();
+    state.lang = nav.indexOf("ko") === 0 ? "ko" : "ja";
+  }
+  /* 문서 페이지에는 KO/JA 토글이 남아 있다 — 눌린 자리를 결정된 언어에 맞춘다.
+     앱 빌드에는 토글이 없으므로 이 루프는 0회 돈다. */
+  document.querySelectorAll("[data-lang-btn]").forEach(function(x){
+    const on = x.getAttribute("data-lang-btn") === state.lang;
+    x.classList.toggle("is-on", on);
+    x.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+/* 테스터 탈출구 — ?fresh=1 로 열면 오늘 기록을 지운다(새로고침 = 새로 뽑기). */
+function bootFresh(){
+  let f = "";
+  try { f = String(new URL(window.location.href).searchParams.get("fresh") || ""); }
+  catch (e){ f = ""; }
+  if (f === "1") recClear();
 }
 
 /* =======================================================
@@ -2582,8 +2589,8 @@ window.addEventListener("resize", fitPhone);
 /* =======================================================
    BOOT
    ======================================================= */
-$("sbTime").textContent = jstClock();
-setInterval(function(){ $("sbTime").textContent = jstClock(); }, 30000);
+bootLang();    /* 언어 = 기기 설정(?lang=ko|ja 가 이긴다) */
+bootFresh();   /* ?fresh=1 = 오늘 기록 삭제 — 테스터 탈출구 */
 syncChrome();
 render();
 fitPhone();

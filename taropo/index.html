@@ -112,6 +112,22 @@ a{color:var(--rose-ink)}
   content:"";position:absolute;inset:0;pointer-events:none;z-index:5;
   background:radial-gradient(120% 60% at 50% -8%, rgba(249,35,108,.16), transparent 58%);
 }
+/* ---- app close ----
+   앱(웹뷰)에는 닫기 크롬이 없다 — 화면 우상단의 × 하나가 그 자리를 대신한다.
+   #views 밖에 있어 재렌더에 지워지지 않고, 앱 안일 때(#app.in-app)만 보인다.
+   진입 제목은 190px 쯤 아래에서 시작하므로 겹치지 않는다. */
+.app-close{
+  position:absolute;top:calc(10px + env(safe-area-inset-top, 0px));right:12px;z-index:20;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,244,248,.06);border:1px solid rgba(217,169,75,.28);
+  color:var(--cream);opacity:.8;
+  display:none;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .18s ease, background .18s ease, border-color .18s ease;
+}
+#app.in-app .app-close{display:flex}
+.app-close:hover{opacity:1;background:rgba(255,244,248,.11);border-color:rgba(217,169,75,.44)}
+.app-close:active{opacity:1;background:rgba(255,244,248,.16)}
 .views{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;position:relative;z-index:6}
 .views::-webkit-scrollbar{display:none}
 .v{padding:calc(22px + env(safe-area-inset-top, 12px)) 24px 34px;min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
@@ -708,6 +724,7 @@ a{color:var(--rose-ink)}
       <div class="phone ja-swap" id="phone" lang="ko">
         <div class="screen">
           <div class="views" id="views" aria-live="polite" aria-atomic="false"></div>
+          <button type="button" class="app-close" data-act="close" aria-label="닫기"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M3.4 3.4 12.6 12.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12.6 3.4 3.4 12.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
           <div class="toast" id="toast" role="status" aria-live="polite"></div>
         </div>
       </div>
@@ -1022,6 +1039,7 @@ const T = {
     axis:function(label){ return "오늘의 축이 이 카드야 — " + label + " 자리에도 같은 카드가 나왔어."; },
     toStory:"스토리에 올리기",
     home:"오늘은 여기까지",
+    close:"닫기",
     redraw:"다시 뽑기",
     storyTitle:"스토리 만들기",
     storySub:"올릴 카드를 고르고, 한마디는 바꿔도 돼.",
@@ -1060,6 +1078,7 @@ const T = {
     axis:function(label){ return "今日の軸はこのカード — " + label + "の場所にも同じカードが出てたよ。"; },
     toStory:"ストーリーに載せる",
     home:"今日はここまで",
+    close:"閉じる",
     redraw:"もういちど引く",
     storyTitle:"ストーリーをつくる",
     storySub:"載せるカードを選んで、ひとことは変えていいよ。",
@@ -2414,6 +2433,7 @@ function render(){
 function syncChrome(){
   $("phone").setAttribute("lang", state.lang);
   app.setAttribute("data-lang", state.lang);
+  syncAppClose();
 }
 
 /* =======================================================
@@ -2495,6 +2515,7 @@ function act(a){
   else if (a === "view") openToday();   /* 오늘의 카드 보기 — 저장된 리딩을 되살린다 */
   else if (a === "post") postStory();
   else if (a === "home") goHome();   /* 오늘은 여기까지 — 첫 화면으로 */
+  else if (a === "close") appClose();   /* 앱 전용 닫기 × */
 }
 
 /* =======================================================
@@ -2559,9 +2580,31 @@ function openToday(){
    ARMED 는 건드리지 않는다 — startDraw()/openToday() 가 각자 다시 세운다.
    state.posted 도 그대로 둔다 — 스토리로 다시 들어갈 때 openStory() 가 정한다. */
 function goHome(){
+  /* 앱 안에서는 "오늘은 여기까지"가 곧 웹뷰의 출구다 — 훅은 어댑터(growth-web 빌드)가
+     깔아 끼우고, 이 목업 빌드에서는 아무도 정의하지 않아 아래 원래 길로 간다. */
+  if (typeof window.SEPO_EXIT === "function"){ window.SEPO_EXIT("home", state.view); return; }
   liveAbort();
   state.view = "entry";
   render();
+}
+/* 앱 전용 닫기 × — 어느 화면에서든 나갈 수 있는 한 자리.
+   훅이 없으면(일반 웹·?app=1 미리보기) 첫 화면으로 돌아간다. */
+function appClose(){
+  if (typeof window.SEPO_EXIT === "function"){ window.SEPO_EXIT("close", state.view); return; }
+  goHome();
+}
+/* 닫기 라벨은 언어를 따른다 — syncChrome() 이 부른다. */
+function syncAppClose(){
+  const b = document.querySelector(".app-close");
+  if (b) b.setAttribute("aria-label", t().close);
+}
+/* 앱 안인가 — 어댑터가 부팅 전에 세워 둔 window.SEPO_IN_APP 이 정답이고,
+   ?app=1 은 공개 페이지에서 같은 모습을 보려고 열어 두는 미리보기 문이다. */
+function bootInApp(){
+  let q = "";
+  try { q = String(new URL(window.location.href).searchParams.get("app") || ""); }
+  catch (e){ q = ""; }
+  if (window.SEPO_IN_APP === true || q === "1") app.classList.add("in-app");
 }
 
 /* 언어는 기기 설정을 따른다 — 토글은 없다. ?lang=ko|ja 가 있으면 그것이 이긴다
@@ -2609,6 +2652,10 @@ views.addEventListener("click", function(e){
      리더의 말이 라이브로 써지는 중에도 같은 탭 한 번으로 끊긴다. */
   if (seqOn || typeTimer || liveSkipHook) seqSkip();
 });
+/* 닫기 × 는 #views 밖에 있다 — 재렌더에 안 지워지는 대신 위 위임에도 안 걸린다.
+   마크업이 고정이라 부팅에 한 번 묶으면 끝이다. */
+const appCloseBtn = document.querySelector(".app-close");
+if (appCloseBtn) appCloseBtn.addEventListener("click", function(){ act("close"); });
 
 /* 탭이 뒤로 넘어가면 키프레임과 타이머가 서로 다른 속도로 흐른다 —
    단계가 표류하지 않게 그 자리에서 완주시킨다. 돌아오면 최종 상태만 남아 있다. */
@@ -2683,6 +2730,7 @@ window.addEventListener("resize", fitPhone);
    ======================================================= */
 bootLang();    /* 언어 = 기기 설정(?lang=ko|ja 가 이긴다) */
 bootFresh();   /* ?fresh=1 = 오늘 기록 삭제 — 테스터 탈출구 */
+bootInApp();   /* 앱 안(및 ?app=1)에서만 닫기 × 를 단다 */
 syncChrome();
 render();
 fitPhone();

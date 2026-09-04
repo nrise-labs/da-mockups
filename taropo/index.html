@@ -130,7 +130,7 @@ a{color:var(--rose-ink)}
 .app-close:active{opacity:1;background:rgba(255,244,248,.16)}
 .views{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;position:relative;z-index:6}
 .views::-webkit-scrollbar{display:none}
-.v{padding:calc(22px + env(safe-area-inset-top, 12px)) 24px 34px;min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
+.v{padding:calc(22px + env(safe-area-inset-top, 12px)) 24px calc(34px + max(var(--wippy-bottom-inset, 0px), env(safe-area-inset-bottom, 0px)));min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 
 /* ---- entry ----
@@ -693,6 +693,9 @@ a{color:var(--rose-ink)}
    MOBILE — 베젤을 벗고 화면이 뷰포트가 된다.
    기기 규칙(.phone/.screen …) 다음에 와야 이긴다.
    상단 크롬(노치·상태바·앱바)은 없다 — 안전영역은 .v 의 padding-top 이 받는다.
+   바닥은 홈 인디케이터(env)와 앱의 떠 있는 내비 바(--wippy-bottom-inset) 둘 다 피해야 한다.
+   합이 아니라 max 다 — 앱이 알려 주는 인셋은 이미 웹뷰 바닥까지의 높이라(바가 홈
+   인디케이터 위에 떠 있다) 더하면 두 번 센다. growth-web 의 KawaiiScaffold 와 같은 규칙.
    ============================================================ */
 @media (max-width:480px){
   body{background:var(--ink);background-image:none}
@@ -705,8 +708,8 @@ a{color:var(--rose-ink)}
   }
   .phone::after{display:none}
   .screen{width:100%;height:100%;border-radius:0}
-  .v{padding-bottom:calc(34px + env(safe-area-inset-bottom))}
-  .toast{bottom:calc(34px + env(safe-area-inset-bottom))}
+  .v{padding-bottom:calc(34px + max(var(--wippy-bottom-inset, 0px), env(safe-area-inset-bottom, 0px)))}
+  .toast{bottom:calc(34px + max(var(--wippy-bottom-inset, 0px), env(safe-area-inset-bottom, 0px)))}
 }
 
 @media (prefers-reduced-motion: reduce){

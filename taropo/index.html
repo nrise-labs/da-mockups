@@ -1220,6 +1220,8 @@ const state = {
   picked:[],         /* 유저가 고른 덱 자리들 — 뽑기 순서대로. 이게 실제 선택이다. */
   draws:[],
   quint:null,
+  /* 이번 리딩의 첫 문장 틀 번호(0..5). 프롬프트를 처음 만들 때 한 번 고르고 그 뒤로 고정. */
+  frame:null,
   flying:false,
   storySel:"quint",
   caption:"",
@@ -2261,7 +2263,7 @@ function liveClean(raw){
    판번호·소요시간·표본 로깅은 배포본 어댑터(window.SEPO_READER_SOURCE) 몫이다 —
    훅이 없는 이 목업은 출처와 목업 판번호만 적는다.
    ======================================================= */
-const DEBUG_PROMPT_VERSION = "v3";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
+const DEBUG_PROMPT_VERSION = "v4";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
 let DEBUG_ON = false;
 let debugLabel = "";   /* 지금 배지에 적을 문구 — render() 뒤에 debugPaint 가 옮긴다 */
 
@@ -2329,6 +2331,89 @@ function promptGist(d, i){
                            : firstSentence(c.body.text || c.body.story) };
 }
 
+/* =======================================================
+   OPENER FRAMES — 첫 문장 틀 (v4)
+   생성은 매번 기억이 없다. "틀을 매번 바꿔"라고 적어 두면 한 판 안에서는 지켜지지만
+   판과 판 사이에서는 지켜질 수 없어서, v3 표본에서는 30판 중 24판이 같은 틀로 시작했다.
+   그래서 회전을 프롬프트에서 걷어 내 이 자리로 옮겼다 — 화면이 틀 하나를 골라 넘기고,
+   모델은 그 틀로 시작하기만 한다.
+   고르는 법은 이 기기에서 가장 오래 안 쓴 것(LRU). 안 쓴 게 여럿이면 이번 판의 시드로
+   하나를 집는다(같은 리딩이면 언제 계산해도 같은 값, 유저·판마다 시작 자리가 다르다).
+   저장은 전부 try/catch 다 — 못 읽거나 못 쓰면 그냥 매번 시드로 고른 셈이 된다.
+   ⚠️ 이 블록은 build_gw.py 의 프롬프트 이식 구간(livePrompt 부터) **밖**에 있다.
+      배포본 livePrompt 가 frameFor()/frameOpener() 를 그대로 부른다.
+   ======================================================= */
+const FRAMES = {
+  ko: [
+    "「X」가 뜬 오늘은 ~",
+    "오늘은 「X」의 날이야, ~",
+    "「X」답게 오늘은 ~",
+    "오늘 네 카드는 「X」야. ~",
+    "「X」가 말하는 오늘은 ~",
+    "오늘은 「X」 쪽이야, ~"
+  ],
+  ja: [
+    "「X」が出た今日は〜",
+    "今日は「X」の日、〜",
+    "「X」らしく今日は〜",
+    "今日のきみのカードは「X」。〜",
+    "「X」が伝える今日は〜",
+    "今日は「X」寄りの日、〜"
+  ]
+};
+const FRAME_N = 6;
+const FRAME_PREFIX = "sepo_tarot_v3:frames:";   /* + userId — 하루 기록과 같은 이름 규칙 */
+
+function frameKey(){ return FRAME_PREFIX + recUser(); }
+/* 최근 쓴 틀 번호들 — 오래된 것이 앞, 방금 쓴 것이 뒤. 최대 6개. */
+function frameRead(){
+  try {
+    const a = JSON.parse(window.localStorage.getItem(frameKey()) || "[]");
+    if (!Array.isArray(a)) return [];
+    const out = [];
+    for (let i = 0; i < a.length; i++){
+      const n = a[i];
+      if (typeof n === "number" && n >= 0 && n < FRAME_N && out.indexOf(n) === -1) out.push(n);
+    }
+    return out.slice(-FRAME_N);
+  } catch (e){ return []; }
+}
+function frameWrite(list){
+  try { window.localStorage.setItem(frameKey(), JSON.stringify(list)); }
+  catch (e){ /* 못 쓰면 회전 기억이 없을 뿐, 이번 판은 그대로 간다 */ }
+}
+/* 방금 쓴 틀을 목록 맨 뒤로 보낸다 — 맨 앞이 언제나 가장 오래된 것이다. */
+function frameUse(i){
+  const used = frameRead().filter(function(n){ return n !== i; });
+  used.push(i);
+  while (used.length > FRAME_N) used.shift();
+  frameWrite(used);
+}
+/* 이번에 쓸 틀 하나. 안 쓴 게 남았으면 그중에서 시드로, 다 썼으면 가장 오래된 것을 되돌려 쓴다. */
+function framePick(seedKey){
+  const used = frameRead();
+  const free = [];
+  for (let i = 0; i < FRAME_N; i++) if (used.indexOf(i) === -1) free.push(i);
+  const idx = free.length ? free[mix32(djb2(String(seedKey || "") + "|frame")) % free.length]
+                          : used[0];
+  frameUse(idx);
+  return idx;
+}
+/* 이번 리딩의 틀 — 프롬프트를 처음 만들 때 한 번 고르고, 그 뒤로는 이 판이 끝날 때까지 같다. */
+function frameFor(){
+  if (typeof state.frame !== "number"){
+    state.frame = framePick(state.seedKey);
+    recSetFrame(state.frame);   /* 하루 기록에도 — 되살린 리딩이 같은 틀을 말한다 */
+  }
+  return state.frame;
+}
+/* 틀 하나를 오늘의 카드 이름으로 채운다. 틀 안의 X 자리가 카드 이름이다. */
+function frameOpener(lang, quintName, idx){
+  const arr = FRAMES[(lang === "ja") ? "ja" : "ko"];
+  const f = arr[(typeof idx === "number" && idx >= 0 && idx < arr.length) ? idx : 0];
+  return f.split("X").join(String(quintName == null ? "" : quintName));
+}
+
 /* 프롬프트 — 오늘 뽑힌 리딩 한 벌을 그대로 재료로 넘긴다.
    두 언어를 따로 쓴다. 번역이 아니라 화법이 다르기 때문이다. */
 function livePrompt(){
@@ -2339,6 +2424,7 @@ function livePrompt(){
   const qn = qCard[state.lang].name;
   const qv = qCopy.body.verdict || qCopy.body.text;
   const wx = weather(state.draws).text;
+  const op = frameOpener(state.lang, qn, frameFor());   /* 이번 판의 첫 문장 틀 */
   if (state.lang === "ja"){
     return [
       "きみは「タロポ」。マッチングアプリのマスコットで、カードを読んでくれるやさしい友だちだよ。タメ口（「〜だよ」「〜してみて」）で話して。",
@@ -2346,8 +2432,8 @@ function livePrompt(){
       "ルール：",
       "- ちょうど2文だけ書く。1文目は今日の恋愛の状況をやさしいことばで一行、2文目は今日やることをひとつ具体的に。全体で60〜80文字。",
       "- 1文目にまとめのカード名を「」に入れて一度だけ書く。ほかのカード名は絶対に使わない。カード名に入っている語（庭、戦車、鐘、タマゴ、ランタン、天秤など）も使わない。",
-      "- 1文目の型は毎回変える。「「X」が出た今日は〜」「今日は「X」の日、〜」「「X」らしく今日は〜」のように回して、「「X」みたいに」はなるべく使わない。",
-      "- 2文はひとりが続けて話すようにつながっていること。1文目の雰囲気と2文目の行動が食い違うなら、行動を1文目に合う言い方に直して書く。",
+      "- 1文目はプロンプトで渡した「1文目の型」で始める。1文目には行動を入れず、今日の状況だけを書く。",
+      "- 2文はひとりが続けて話すようにつながっていること。行動が1文目の雰囲気と食い違うなら、行動の言い方を1文目に合わせて直す（落ち着いた日なら「ゆっくりひとつだけ」のように）。",
       "- たとえ・比喩は禁止。星・光・風・水・季節・扉・道・一歩・流れ・気配・温度・天気のようなことばは使わない。プロフィール、いいね、マッチ、メッセージ、返事、会話みたいに、アプリで実際にやることのことばだけ使う。",
       "- 2文目は「〜してみて」の形で、やることはひとつだけ。ふたつ以上たのまない。アプリを閉じる・今日は使わない、といったことは言わない。",
       "- 今日の空模様のことばは画面にもうあるので、そのまま繰り返さない。文末を毎回「日だよ」で終えず、変えてみて。",
@@ -2366,8 +2452,9 @@ function livePrompt(){
       "- ひと手の席：" + g[2].name + " — 今日の行動：" + g[2].gist,
       "- 今日のカード（まとめ）：" + qn + " — " + qv,
       "- 今日の空模様：" + wx,
+      "- 1文目の型：" + op,
       "",
-      "任務：ルールどおりにちょうど2文。1文目は「" + qn + "」を入れた今日の恋愛の状況、2文目はひと手の席の行動をやさしいことばで。"
+      "任務：ルールどおりにちょうど2文。1文目は上の「1文目の型」で始めて今日の恋愛の状況だけを書き、2文目はひと手の席の行動をやさしいことばで。"
     ].join("\n");
   }
   return [
@@ -2376,8 +2463,8 @@ function livePrompt(){
     "규칙:",
     "- 딱 두 문장만 써. 첫 문장은 오늘의 연애 상황을 쉬운 말로 한 줄, 둘째 문장은 오늘 할 일 하나를 구체적으로. 전체 60자 안팎, 최대 80자.",
     "- 첫 문장에 종합 카드 이름을 「」 안에 넣어 한 번만 써. 다른 카드 이름은 절대 쓰지 말고, 카드 이름에 들어간 단어(정원, 전차, 종, 알, 등불, 저울 같은 것)도 쓰지 마.",
-    "- 첫 문장의 틀은 매번 바꿔. \"「X」가 뜬 오늘은 ~\", \"오늘은 「X」의 날이야, ~\", \"「X」답게 오늘은 ~\"처럼 돌려 쓰고, \"「X」처럼\"은 되도록 쓰지 마.",
-    "- 두 문장은 한 사람이 이어서 말하듯 맞아야 해. 첫 문장의 분위기와 둘째 문장의 행동이 어긋나면, 행동을 첫 문장 분위기에 맞는 말투로 바꿔서 써.",
+    "- 첫 문장은 프롬프트에 준 \"첫 문장 틀\"로 시작해. 첫 문장에는 행동을 넣지 말고 오늘의 상황만 써.",
+    "- 두 문장은 한 사람이 이어서 말하듯 맞아야 해. 행동이 첫 문장 분위기와 어긋나면, 행동의 말투를 첫 문장 분위기에 맞게 바꿔 써(차분한 날이면 \"천천히 하나만\" 식으로).",
     "- 은유·비유 금지. 별·빛·바람·물·계절·문·길·걸음·흐름·기운·온도·날씨 같은 말은 쓰지 마. 프로필, 좋아요, 매칭, 메시지, 답장, 대화처럼 앱에서 실제로 하는 일의 말만 써.",
     "- 둘째 문장은 \"~해 봐\" 꼴로 행동 하나만. 두 가지 이상 시키지 마. 앱을 닫거나 오늘은 앱을 쓰지 말라는 말은 하지 마.",
     "- 오늘의 날씨 문구는 화면에 이미 있으니 그 말을 그대로 되풀이하지 마. 문장 끝을 매번 \"날이야\"로 끝내지 말고 바꿔 봐.",
@@ -2396,8 +2483,9 @@ function livePrompt(){
     "- 한 수 자리: " + g[2].name + " — 오늘의 행동: " + g[2].gist,
     "- 오늘의 카드(종합): " + qn + " — " + qv,
     "- 오늘의 날씨: " + wx,
+    "- 첫 문장 틀: " + op,
     "",
-    "임무: 규칙대로 딱 두 문장. 첫 문장은 「" + qn + "」을 넣은 오늘의 연애 상황, 둘째 문장은 한 수 자리의 행동을 쉬운 말로."
+    "임무: 규칙대로 딱 두 문장. 첫 문장은 위 \"첫 문장 틀\"로 시작해 오늘의 연애 상황만 쓰고, 둘째 문장은 한 수 자리의 행동을 쉬운 말로."
   ].join("\n");
 }
 
@@ -2764,6 +2852,7 @@ function startDraw(){
   state.picked = [];
   state.draws = [];
   state.quint = null;
+  state.frame = null;   /* 새 판 = 새 틀 — 다음 프롬프트를 만들 때 고른다 */
   state.posted = false;
   state.postedReal = false;
   state.restored = false;   /* 새로 뽑은 판 — 되살린 리딩이 아니다 */
@@ -2869,6 +2958,7 @@ function recSave(){
       return { index: d.index, reversed: !!d.reversed, slot: d.slot, pos: d.position.id };
     }),
     quint: state.quint,
+    frame: (typeof state.frame === "number") ? state.frame : null,
     lang: state.lang,
     readerText: state.readerLive[state.lang] || null,
     ts: Date.now()
@@ -2880,6 +2970,13 @@ function recSetReader(line){
   if (!r || !line || r.seedKey !== state.seedKey) return;
   r.readerText = line;
   r.lang = state.lang;
+  recWrite(r);
+}
+/* 첫 문장 틀 번호도 같은 자물쇠로 기록에 남긴다 — 되살린 리딩이 같은 틀을 쓰게. */
+function recSetFrame(i){
+  const r = recRead();
+  if (!r || typeof i !== "number" || r.seedKey !== state.seedKey) return;
+  r.frame = i;
   recWrite(r);
 }
 /* 저장된 하루 기록으로 리딩 화면을 곧바로 연다 — 뽑기도, 공개 연출도,
@@ -2899,6 +2996,7 @@ function openToday(){
     return { index: d.index, reversed: !!d.reversed, position: p, slot: d.slot };
   });
   state.quint = (r.quint && typeof r.quint.index === "number") ? r.quint : quintOf(state.draws);
+  state.frame = (typeof r.frame === "number") ? r.frame : null;   /* 되살린 판은 그날의 틀 그대로 */
   state.readerLive = { ko:null, ja:null };
   if (r.readerText) state.readerLive[r.lang || state.lang] = r.readerText;
   state.restored = true;   /* 되살린 리딩 — 오늘 새로 만든 문장이 아니다 */

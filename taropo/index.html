@@ -561,6 +561,12 @@ a{color:var(--rose-ink)}
 /* 문장을 기다리는 동안의 숨결 — 자리만 지킨다. 첫 글자가 오면 클래스가 떨어진다. */
 .quint-reader.is-weaving{color:rgba(255,201,219,.62);animation:weave 1600ms ease-in-out infinite}
 @keyframes weave{0%,100%{opacity:.5}50%{opacity:.9}}
+/* 테스터 배지 — 리더의 말이 어디서 왔는지 한 줄. ?debug=1 로 연 화면에서만
+   hidden 이 떨어진다(bootDebug/debugPaint). 유저 화면에는 존재하지 않는 것과 같다. */
+.rd-src{
+  display:block;margin-top:7px;font-family:var(--sans);font-size:9.5px;font-weight:700;
+  letter-spacing:.1em;color:rgba(243,231,217,.36);text-align:center;
+}
 .quint .cardface{box-shadow:0 16px 40px rgba(0,0,0,.5), 0 0 30px -6px rgba(217,169,75,.6)}
 .quint .cardface::before{border-color:rgba(217,169,75,.8)}
 /* ---- 오늘의 카드 3D 틸트 — 바깥(.quint-tilt)은 원근과 느린 자동 흔들림,
@@ -1077,6 +1083,8 @@ const T = {
     postFailed:"스토리에 올리지 못했어. 잠시 후 다시 해줘",
     postedTitle:"스토리에 올라갔어",
     postedSub:"친구들이 오늘의 카드를 볼 수 있어. (목업)",
+    /* 진짜로 올라갔을 때의 부제 — 훅(SEPO_POST_STORY)이 있는 배포본만 쓴다. */
+    postedSubReal:"친구들이 오늘의 카드를 볼 수 있어.",
     postedBadge:"올림 완료",
     backToReading:"리딩으로 돌아가기",
     up:"정방향", rev:"역방향", upS:"정", revS:"역",
@@ -1119,6 +1127,7 @@ const T = {
     postFailed:"ストーリーに載せられなかった。少しあとでもう一度",
     postedTitle:"ストーリーに載せたよ",
     postedSub:"友だちが今日の一枚を見られるよ。（モックアップ）",
+    postedSubReal:"友だちが今日のカードを見られるよ。",
     postedBadge:"投稿ずみ",
     backToReading:"リーディングに戻る",
     up:"正位置", rev:"逆位置", upS:"正", revS:"逆",
@@ -1155,6 +1164,12 @@ const state = {
   caption:"",
   capEdited:false,   /* 유저가 문구를 직접 수정했는가 — true면 칩 전환이 덮지 않는다 */
   posted:false,
+  /* 진짜로 앱 스토리에 올라갔는가(훅이 posted 를 돌려준 경우). 목업으로 올린 척한
+     화면과 문구를 가른다 — 없는 기능을 있는 것처럼 말하지 않는다. */
+  postedReal:false,
+  /* 이 리딩이 하루 기록에서 되살아난 것인가(openToday). 오늘 새로 만든 문장이
+     아니므로 배포본의 표본 로깅이 이 판을 건너뛴다. */
+  restored:false,
   posting:false,  /* 스토리 올리기가 앱에 넘어가 답을 기다리는 중 — 버튼을 잠근다 */
   /* 이번 리딩에서 라이브로 쓰인 리더의 말 — 언어마다 따로 담는다.
      비어 있으면 사람이 쓴 문장 틀이 그 자리를 지킨다. */
@@ -1232,7 +1247,9 @@ function typedBlock(text, cls){
 function readerBlock(tmpl, live){
   return '<p class="quint-reader typed" data-full="' + esc(live || tmpl) +
            '" data-tmpl="' + esc(tmpl) + '" aria-hidden="true"></p>' +
-         '<p class="sr-only">' + esc(tmpl) + '</p>';
+         '<p class="sr-only">' + esc(tmpl) + '</p>' +
+         /* 테스터 배지 자리 — ?debug=1 이 아니면 끝까지 hidden 이다. */
+         '<span class="rd-src" hidden aria-hidden="true"></span>';
 }
 
 /* 카드 1장 = 금박 라인 장면(SCENE) 1점 + 3D 세포 렌더 1종.
@@ -1710,7 +1727,8 @@ function viewStory(){
   if (state.posted){
     return '<div class="v v-story is-posted">' +
       '<div class="st-head"><p class="st-title">' + esc(t().postedTitle) + '</p>' +
-        '<p class="st-sub">' + esc(t().postedSub) + '</p></div>' +
+        '<p class="st-sub">' + esc(state.postedReal ? t().postedSubReal : t().postedSub) +
+          '</p></div>' +
       '<div class="st-posted">' + storyFrame() +
         '<span class="st-badge">' + esc(t().postedBadge) + '</span></div>' +
       '<div class="rd-actions">' +
@@ -2078,6 +2096,67 @@ function liveClean(raw){
   return s;
 }
 
+/* =======================================================
+   테스터 배지 — 리더의 말이 어디서 왔는가
+   ?debug=1 로 열었을 때만 리더의 말 아래 작은 알약이 뜬다:
+     gemini · v1 · 1.8s   /   template · v1
+   유저 화면에는 이 자리가 존재하지 않는 것과 같다(hidden 이 그대로 남는다).
+
+   판번호·소요시간·표본 로깅은 배포본 어댑터(window.SEPO_READER_SOURCE) 몫이다 —
+   훅이 없는 이 목업은 출처와 목업 판번호만 적는다.
+   ======================================================= */
+const DEBUG_PROMPT_VERSION = "v1";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
+let DEBUG_ON = false;
+let debugLabel = "";   /* 지금 배지에 적을 문구 — render() 뒤에 debugPaint 가 옮긴다 */
+
+function bootDebug(){
+  try { DEBUG_ON = new URL(window.location.href).searchParams.get("debug") === "1"; }
+  catch (e){ DEBUG_ON = false; }
+}
+/* 배지 문구를 정하고 바로 한 번 그린다. 화면이 다시 그려지면 debugPaint 가 다시 얹는다. */
+function debugSet(label){
+  debugLabel = String(label == null ? "" : label);
+  debugPaint();
+}
+function debugPaint(){
+  if (!DEBUG_ON || !debugLabel) return;
+  const el = views.querySelector(".rd-src");
+  if (!el) return;
+  el.textContent = debugLabel;
+  el.hidden = false;
+}
+/* 리더의 말이 확정된 순간 — 어디서 온 문장인지 한 곳에서만 알린다.
+   배포본이 훅을 깔면 그쪽이 판번호·소요시간을 얹고 표본을 시트로 넘긴다.
+   이 함수는 화면 내용을 바꾸지 않는다(배지 한 줄이 전부다). */
+function readerSource(source, text){
+  const info = { source: String(source || "template"), text: String(text == null ? "" : text) };
+  const sink = window.SEPO_READER_SOURCE;
+  if (typeof sink === "function"){
+    try { sink(info); return; }
+    catch (e){ /* 어댑터가 넘어져도 리딩은 그대로 간다 */ }
+  }
+  debugSet(info.source + " \u00b7 " + DEBUG_PROMPT_VERSION);
+}
+
+/* 표본 생성용 한 판 — 무작위 시드로 덱을 섞어 세 자리를 뽑는다.
+   state 는 한 톨도 건드리지 않는다(화면의 리딩·하루 기록과 완전히 분리).
+   유일한 소비처는 배포본의 테스터 표본 모드다. */
+function sampleDraw(){
+  const seedKey = nowSeedKey() + ":" + Math.random().toString(36).slice(2, 10);
+  const deck = shuffledDeck(seedKey);
+  const P = positions();
+  const slots = [];
+  while (slots.length < P.length){
+    const k = Math.floor(Math.random() * DECK);
+    if (slots.indexOf(k) === -1) slots.push(k);
+  }
+  const draws = slots.map(function(slot, i){
+    return { index: deck[slot], reversed: false, position: P[i], slot: slot };
+  });
+  return { seedKey: seedKey, dateKey: seedKey.slice(0, 10), draws: draws,
+           quint: quintOf(draws), weather: weather(draws) };
+}
+
 /* 프롬프트 — 오늘 뽑힌 리딩 한 벌을 그대로 재료로 넘긴다.
    두 언어를 따로 쓴다. 번역이 아니라 화법이 다르기 때문이다. */
 function livePrompt(){
@@ -2137,7 +2216,11 @@ function livePrompt(){
 function readerFill(node, done){
   const fin = function(){ if (done) done(); };
   if (!node){ fin(); return; }
-  if (!liveReady()){ typeNodes([node], fin); return; }
+  if (!liveReady()){
+    readerSource("template", node.getAttribute("data-full") || node.getAttribute("data-tmpl") || "");
+    typeNodes([node], fin);
+    return;
+  }
 
   const tmpl = node.getAttribute("data-tmpl") || node.getAttribute("data-full") || "";
   const gen = ++liveGen;
@@ -2153,6 +2236,7 @@ function readerFill(node, done){
     close();
     node.classList.remove("is-weaving");
     node.setAttribute("data-full", tmpl);
+    readerSource("template", tmpl);
     if (seqRush){ finishTyping(); fin(); return; }
     typeNodes([node], fin);
   };
@@ -2162,6 +2246,7 @@ function readerFill(node, done){
     close();
     state.readerLive[state.lang] = line;
     recSetReader(line);   /* 하루 기록의 리더의 말도 같이 갱신 */
+    readerSource("gemini", line);
     node.classList.remove("is-weaving");
     node.setAttribute("data-full", line);
     node.textContent = line;
@@ -2177,6 +2262,7 @@ function readerFill(node, done){
     node.classList.remove("is-weaving");
     if (kept){ state.readerLive[state.lang] = kept; recSetReader(kept); }
     node.setAttribute("data-full", kept || tmpl);
+    readerSource(kept ? "gemini" : "template", kept || tmpl);
   };
 
   liveCtl = ctl;
@@ -2337,6 +2423,7 @@ function render(){
   if (window.Taropo3D) window.Taropo3D.unmount();
   views.innerHTML = html;
   views.scrollTop = 0;
+  debugPaint();   /* 테스터 배지 — 화면을 다시 그려도 같은 문구가 남는다 */
   const holder3d = views.querySelector(".sepo3d");
   window.__taropo3dPending = holder3d;
   if (holder3d && window.Taropo3D){
@@ -2487,8 +2574,11 @@ function startDraw(){
   state.draws = [];
   state.quint = null;
   state.posted = false;
+  state.postedReal = false;
+  state.restored = false;   /* 새로 뽑은 판 — 되살린 리딩이 아니다 */
   state.posting = false;
   state.readerLive = { ko:null, ja:null };   /* 새 리딩 = 새 문장 */
+  debugLabel = "";   /* 지난 판의 배지 문구는 새 판으로 넘어오지 않는다 */
   state.focus = djb2(state.seedKey) % DECK;
   state.view = "browse";
   render();
@@ -2498,6 +2588,7 @@ function openStory(){
   state.capEdited = false;
   state.caption = defaultCaption();
   state.posted = false;
+  state.postedReal = false;
   state.posting = false;
   state.view = "story";
   render();
@@ -2542,6 +2633,7 @@ window.SEPO_STORY_DONE = function(result){
   state.posting = false;
   if (result === "posted"){
     state.posted = true;
+    state.postedReal = true;   /* 진짜로 올라갔다 — 화면 문구에서 (목업)이 빠진다 */
     render();
     toast(t().postedReal);
     return;
@@ -2613,7 +2705,9 @@ function openToday(){
   state.quint = (r.quint && typeof r.quint.index === "number") ? r.quint : quintOf(state.draws);
   state.readerLive = { ko:null, ja:null };
   if (r.readerText) state.readerLive[r.lang || state.lang] = r.readerText;
+  state.restored = true;   /* 되살린 리딩 — 오늘 새로 만든 문장이 아니다 */
   state.posted = false;
+  state.postedReal = false;
   state.storySel = "quint";
   state.capEdited = false;
   sealing = false;
@@ -2780,6 +2874,7 @@ window.addEventListener("resize", fitPhone);
    BOOT
    ======================================================= */
 bootLang();    /* 언어 = 기기 설정(?lang=ko|ja 가 이긴다) */
+bootDebug();   /* ?debug=1 = 테스터 배지 — 그 밖에는 배지가 뜨지 않는다 */
 bootFresh();   /* ?fresh=1 = 오늘 기록 삭제 — 테스터 탈출구 */
 bootInApp();   /* 앱 안(및 ?app=1)에서만 닫기 × 를 단다 */
 syncChrome();

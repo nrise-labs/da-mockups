@@ -2263,13 +2263,38 @@ function liveClean(raw){
    판번호·소요시간·표본 로깅은 배포본 어댑터(window.SEPO_READER_SOURCE) 몫이다 —
    훅이 없는 이 목업은 출처와 목업 판번호만 적는다.
    ======================================================= */
-const DEBUG_PROMPT_VERSION = "v4";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
+const DEBUG_PROMPT_VERSION = "v5";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
 let DEBUG_ON = false;
 let debugLabel = "";   /* 지금 배지에 적을 문구 — render() 뒤에 debugPaint 가 옮긴다 */
 
 function bootDebug(){
   try { DEBUG_ON = new URL(window.location.href).searchParams.get("debug") === "1"; }
   catch (e){ DEBUG_ON = false; }
+  if (DEBUG_ON) frameSelfCheck();
+}
+
+/* 조사 자가검사(v5) — 받침 있는 이름과 없는 이름을 섞어 틀이 제대로 읽히는지 본다.
+   ?debug=1 로 열 때만 돌고 결과를 window.__TAROT_FRAME_SELFCHECK 에 남긴다(검증기가 읽는다).
+   어긋나면 콘솔에 한 줄 경고할 뿐, 화면은 그대로 간다. */
+function frameSelfCheck(){
+  const cases = [
+    ["시작의 알", 0, "「시작의 알」이 뜬 오늘은"],
+    ["달콤한 사슬", 3, "오늘 네 카드는 「달콤한 사슬」이야,"],
+    ["설렘의 고동", 4, "「설렘의 고동」이 말하는 오늘은"],
+    ["햇살", 0, "「햇살」이 뜬 오늘은"],
+    ["거꾸로 보기", 0, "「거꾸로 보기」가 뜬 오늘은"],
+    ["허물벗기", 3, "오늘 네 카드는 「허물벗기」야,"]
+  ];
+  const out = [];
+  for (let i = 0; i < cases.length; i++){
+    const got = frameOpener("ko", cases[i][0], cases[i][1]);
+    out.push({ name: cases[i][0], frame: cases[i][1], want: cases[i][2], got: got,
+               ok: got.indexOf(cases[i][2]) === 0 });
+  }
+  const bad = out.filter(function(r){ return !r.ok; });
+  if (bad.length) console.warn("[tarot] koParticle self-check failed", bad);
+  try { window.__TAROT_FRAME_SELFCHECK = out; } catch (e){ /* 저장이 막혀도 그만이다 */ }
+  return out;
 }
 /* 배지 문구를 정하고 바로 한 번 그린다. 화면이 다시 그려지면 debugPaint 가 다시 얹는다. */
 function debugSet(label){
@@ -2332,7 +2357,7 @@ function promptGist(d, i){
 }
 
 /* =======================================================
-   OPENER FRAMES — 첫 문장 틀 (v4)
+   OPENER FRAMES — 첫 문장 틀 (v5)
    생성은 매번 기억이 없다. "틀을 매번 바꿔"라고 적어 두면 한 판 안에서는 지켜지지만
    판과 판 사이에서는 지켜질 수 없어서, v3 표본에서는 30판 중 24판이 같은 틀로 시작했다.
    그래서 회전을 프롬프트에서 걷어 내 이 자리로 옮겼다 — 화면이 틀 하나를 골라 넘기고,
@@ -2343,20 +2368,34 @@ function promptGist(d, i){
    ⚠️ 이 블록은 build_gw.py 의 프롬프트 이식 구간(livePrompt 부터) **밖**에 있다.
       배포본 livePrompt 가 frameFor()/frameOpener() 를 그대로 부른다.
    ======================================================= */
+/* 받침 판별 — 한글 음절 코드에서 종성 자리를 꺼낸다((code − 0xAC00) % 28 ≠ 0 이면 받침).
+   한글이 아닌 글자로 끝나면 받침 없는 쪽으로 본다(카드 이름에는 없지만 방어다).
+   v4 표본에서 틀에 박아 둔 고정 조사가 이름 끝을 무시하고 나갔다
+   ("「시작의 알」가 뜬", "「달콤한 사슬」야") — 그 자리를 이 함수가 채운다. */
+function koParticle(name, kind){
+  const s = String(name == null ? "" : name);
+  const ch = s.length ? s.charCodeAt(s.length - 1) : 0;
+  const jong = (ch >= 0xAC00 && ch <= 0xD7A3) ? ((ch - 0xAC00) % 28 !== 0) : false;
+  if (kind === "topic")  return jong ? "은" : "는";
+  if (kind === "copula") return jong ? "이야" : "야";
+  return jong ? "이" : "가";   /* subj */
+}
+/* 틀 4 는 v4 에서 마침표로 첫 문장을 끝내 버렸다 — 모델이 상황을 둘째 문장에 쓰고
+   행동을 통째로 빠뜨렸다. 쉼표로 이어 붙여 한 문장으로 굴러가게 했다(ja 도 。→、). */
 const FRAMES = {
   ko: [
-    "「X」가 뜬 오늘은 ~",
+    "「X」{subj} 뜬 오늘은 ~",
     "오늘은 「X」의 날이야, ~",
     "「X」답게 오늘은 ~",
-    "오늘 네 카드는 「X」야. ~",
-    "「X」가 말하는 오늘은 ~",
+    "오늘 네 카드는 「X」{copula}, ~",
+    "「X」{subj} 말하는 오늘은 ~",
     "오늘은 「X」 쪽이야, ~"
   ],
   ja: [
     "「X」が出た今日は〜",
     "今日は「X」の日、〜",
     "「X」らしく今日は〜",
-    "今日のきみのカードは「X」。〜",
+    "今日のきみのカードは「X」、〜",
     "「X」が伝える今日は〜",
     "今日は「X」寄りの日、〜"
   ]
@@ -2407,11 +2446,15 @@ function frameFor(){
   }
   return state.frame;
 }
-/* 틀 하나를 오늘의 카드 이름으로 채운다. 틀 안의 X 자리가 카드 이름이다. */
+/* 틀 하나를 오늘의 카드 이름으로 채운다. 틀 안의 X 자리가 카드 이름이고,
+   {subj}·{topic}·{copula} 자리는 그 이름의 받침이 정하는 조사다(ja 틀에는 없다). */
 function frameOpener(lang, quintName, idx){
   const arr = FRAMES[(lang === "ja") ? "ja" : "ko"];
   const f = arr[(typeof idx === "number" && idx >= 0 && idx < arr.length) ? idx : 0];
-  return f.split("X").join(String(quintName == null ? "" : quintName));
+  const nm = String(quintName == null ? "" : quintName);
+  return f.split("X").join(nm).replace(/\{(subj|topic|copula)\}/g, function(_m, kind){
+    return koParticle(nm, kind);
+  });
 }
 
 /* 프롬프트 — 오늘 뽑힌 리딩 한 벌을 그대로 재료로 넘긴다.
@@ -2430,7 +2473,7 @@ function livePrompt(){
       "きみは「タロポ」。マッチングアプリのマスコットで、カードを読んでくれるやさしい友だちだよ。タメ口（「〜だよ」「〜してみて」）で話して。",
       "かくれたルール：カードの読み手の目で読むけど、「タロット」「占い」「リーダー」みたいな肩書きのことばは文に入れない。",
       "ルール：",
-      "- ちょうど2文だけ書く。1文目は今日の恋愛の状況をやさしいことばで一行、2文目は今日やることをひとつ具体的に。全体で60〜80文字。",
+      "- ちょうど2文だけ書く。1文目は今日の恋愛の状況をやさしいことばで一行、2文目は今日やることをひとつ具体的に。全体で60〜75文字。",
       "- 1文目にまとめのカード名を「」に入れて一度だけ書く。ほかのカード名は絶対に使わない。カード名に入っている語（庭、戦車、鐘、タマゴ、ランタン、天秤など）も使わない。",
       "- 1文目はプロンプトで渡した「1文目の型」で始める。1文目には行動を入れず、今日の状況だけを書く。",
       "- 2文はひとりが続けて話すようにつながっていること。行動が1文目の雰囲気と食い違うなら、行動の言い方を1文目に合わせて直す（落ち着いた日なら「ゆっくりひとつだけ」のように）。",

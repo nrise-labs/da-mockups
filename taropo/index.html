@@ -698,13 +698,29 @@ a{color:var(--rose-ink)}
 }
 .st-sy-spark{position:absolute;left:0;top:0;width:540px;height:960px;color:var(--gilt);pointer-events:none}
 .st-sy-eyebrow{
-  position:absolute;left:0;right:0;top:165px;margin:0;text-align:center;
+  position:absolute;left:0;right:0;top:248px;margin:0;text-align:center;
   font-family:var(--sans);font-size:14px;font-weight:500;line-height:1;
   letter-spacing:.34em;text-indent:.34em;color:var(--gilt);
 }
-.st-sy-card{position:absolute;left:95px;top:200px;width:350px}
+/* 카드 300px 폭(높이 = 300 × 1.575 = 472.5) → y 270~742.5.
+   4:5 크롭 상단 142.5 에서 카드 윗변까지 127.5px 를 비워 앱 작성기의 닉네임/아바타
+   오버레이(상단 ~95 CSS px)가 카드를 덮지 않는다. */
+.st-sy-card{position:absolute;left:120px;top:270px;width:300px}
+/* 한마디는 그림에 굽는다 — 앱 캡션 필드로 보내면 작성기가 그림 한가운데(마스코트 위)에
+   얹기 때문이다. 카드 아래·안전영역 안(756~808)에 두 줄까지. 넘치면 잘린다. */
+.st-sy-cap{
+  position:absolute;left:40px;right:40px;top:756px;margin:0;text-align:center;
+  font-family:var(--serif);font-size:20px;line-height:1.3;color:var(--cream);
+  max-height:52px;overflow:hidden;word-break:normal;
+}
+/* ko 는 어절 단위로 접는다(ja 는 그대로 — 일본어는 어절 개념이 없다). */
+.st-sy-cap.keep-all{word-break:keep-all}
+/* 한마디가 비면 카드가 14px 내려와 다시 가운데에 앉는다. */
+.st-story.no-cap .st-sy-card{top:284px}
+/* 마크는 안전영역(~817.5) 밖이다 — 9:16 스토리 뷰어에는 보이고 4:5 작성기에서는
+   잘린다. 뜻이 있는 것(카드·한마디)은 전부 안쪽이므로 그래도 된다. */
 .st-sy-mark{
-  position:absolute;left:0;right:0;top:790px;margin:0;text-align:center;
+  position:absolute;left:0;right:0;top:868px;margin:0;text-align:center;
   font-family:var(--sans);font-size:13px;line-height:1;letter-spacing:.14em;
   color:rgba(255,201,219,.5);font-variant-numeric:tabular-nums;
 }
@@ -1785,12 +1801,23 @@ const ST_SPARK_SVG = '<svg class="st-sy-spark" viewBox="0 0 540 960" fill="none"
   'stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
   ST_SPARKS.map(function(s){ return tlStar(s[0], s[1], s[2], s[3], s[4]); }).join("") + '</svg>';
 
+/* 그림에 구울 한마디 — 어댑터의 sanitizeStoryCaption 과 같은 규칙이다(공백을 한 칸으로
+   접고, 다듬고, 80자에서 자른다). 화면의 textarea 는 48자에서 막지만 규칙은 한 자리에 둔다. */
+const STORY_CAP_MAX = 80;
+function storyCapText(){
+  const s = String(state.caption == null ? "" : state.caption).replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  return s.length <= STORY_CAP_MAX ? s : s.slice(0, STORY_CAP_MAX) + "\u2026";
+}
 function storyCanvasHTML(){
   const p = storyPick();
-  return '<div class="st-story">' +
+  const cap = storyCapText();
+  return '<div class="st-story' + (cap ? "" : " no-cap") + '">' +
       '<i class="st-sy-glow" aria-hidden="true"></i>' + ST_SPARK_SVG +
       '<p class="st-sy-eyebrow">' + esc(t().storyEyebrow) + '</p>' +
-      '<div class="st-sy-card">' + cardFace(p.card, p.reversed, "hero", 350) + '</div>' +
+      '<div class="st-sy-card">' + cardFace(p.card, p.reversed, "hero", 300) + '</div>' +
+      (cap ? '<p class="st-sy-cap' + (state.lang === "ja" ? "" : " keep-all") + '">' +
+               esc(cap) + '</p>' : '') +
       '<p class="st-sy-mark">' + esc(t().charName) + ' · ' + esc(state.dateKey) + '</p>' +
     '</div>';
 }
@@ -1810,6 +1837,27 @@ function mountStoryCanvas(){
 function unmountStoryCanvas(){
   const stage = document.getElementById("stStage");
   if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
+}
+/* ?debug=1 QA 미리보기의 한마디를 지금 값으로 맞춘다 — 미리보기는 render() 때 한 번
+   그려지므로 타이핑을 따라가지 않으면 "올라갈 그림"을 잘못 보여 준다.
+   상자가 없으면(유저 화면) 아무 일도 하지 않는다. */
+function syncStoryPreviewCap(){
+  const box = document.querySelector(".st-story-preview .st-story");
+  if (!box) return;
+  const txt = storyCapText();
+  let el = box.querySelector(".st-sy-cap");
+  if (!txt){
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    box.classList.add("no-cap");
+    return;
+  }
+  box.classList.remove("no-cap");
+  if (!el){
+    el = document.createElement("p");
+    box.insertBefore(el, box.querySelector(".st-sy-mark"));
+  }
+  el.className = "st-sy-cap" + (state.lang === "ja" ? "" : " keep-all");
+  el.textContent = txt;
 }
 function viewStory(){
   if (state.posted){
@@ -2911,6 +2959,7 @@ views.addEventListener("input", function(e){
     state.capEdited = e.target.value.length > 0;
     const cap = $("stCap");
     if (cap) cap.textContent = state.caption;
+    syncStoryPreviewCap();   /* ?debug=1 미리보기의 그림 속 한마디도 같이 따라간다 */
   }
 });
 

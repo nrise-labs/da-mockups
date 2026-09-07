@@ -1070,7 +1070,11 @@ const T = {
     capPlaceholder:"한마디 남기기",
     post:"스토리에 올리기",
     back:"뒤로",
+    posting:"올리는 중…",
     posted:"스토리에 올라갔어 (목업)",
+    /* 진짜로 앱 스토리에 올라갔을 때 — 훅(SEPO_POST_STORY)이 있는 배포본만 쓴다. */
+    postedReal:"스토리에 올라갔어",
+    postFailed:"스토리에 올리지 못했어. 잠시 후 다시 해줘",
     postedTitle:"스토리에 올라갔어",
     postedSub:"친구들이 오늘의 카드를 볼 수 있어. (목업)",
     postedBadge:"올림 완료",
@@ -1109,7 +1113,10 @@ const T = {
     capPlaceholder:"ひとこと残す",
     post:"ストーリーに載せる",
     back:"もどる",
+    posting:"アップ中…",
     posted:"ストーリーに載せたよ（モックアップ）",
+    postedReal:"ストーリーに載せたよ",
+    postFailed:"ストーリーに載せられなかった。少しあとでもう一度",
     postedTitle:"ストーリーに載せたよ",
     postedSub:"友だちが今日の一枚を見られるよ。（モックアップ）",
     postedBadge:"投稿ずみ",
@@ -1148,6 +1155,7 @@ const state = {
   caption:"",
   capEdited:false,   /* 유저가 문구를 직접 수정했는가 — true면 칩 전환이 덮지 않는다 */
   posted:false,
+  posting:false,  /* 스토리 올리기가 앱에 넘어가 답을 기다리는 중 — 버튼을 잠근다 */
   /* 이번 리딩에서 라이브로 쓰인 리더의 말 — 언어마다 따로 담는다.
      비어 있으면 사람이 쓴 문장 틀이 그 자리를 지킨다. */
   readerLive:{ ko:null, ja:null }
@@ -1726,7 +1734,9 @@ function viewStory(){
     '<label class="sr-only" for="stCapIn">' + esc(t().capLabel) + '</label>' +
     '<textarea id="stCapIn" class="st-cap" rows="2" maxlength="48" placeholder="' + esc(t().capPlaceholder) + '">' + esc(state.caption) + '</textarea>' +
     '<div class="rd-actions">' +
-      '<button type="button" class="btn primary sm" data-act="post">' + esc(t().post) + '</button>' +
+      '<button type="button" class="btn primary sm" data-act="post"' +
+        (state.posting ? " disabled" : "") + '>' +
+        esc(state.posting ? t().posting : t().post) + '</button>' +
       '<button type="button" class="btn ghost sm" data-go="reading">' + esc(t().back) + '</button>' +
     '</div>' +
   '</div>';
@@ -2477,6 +2487,7 @@ function startDraw(){
   state.draws = [];
   state.quint = null;
   state.posted = false;
+  state.posting = false;
   state.readerLive = { ko:null, ja:null };   /* 새 리딩 = 새 문장 */
   state.focus = djb2(state.seedKey) % DECK;
   state.view = "browse";
@@ -2487,6 +2498,7 @@ function openStory(){
   state.capEdited = false;
   state.caption = defaultCaption();
   state.posted = false;
+  state.posting = false;
   state.view = "story";
   render();
 }
@@ -2497,11 +2509,46 @@ function setStorySel(sel){
   const el = views.querySelector('.st-chip[data-sel="' + sel + '"]');
   if (el) el.focus({ preventScroll: true });
 }
+/* 스토리에 올리기. 배포본(앱 웹뷰)은 어댑터가 window.SEPO_POST_STORY 를 깔아 두므로
+   카드 프레임을 그대로 앱 스토리 작성기로 넘긴다 — 답은 SEPO_STORY_DONE 으로 돌아온다.
+   훅이 없으면(공개 페이지·로컬 프리뷰) 지금까지처럼 올린 척한다. */
 function postStory(){
+  if (state.posting) return;
+  const hook = window.SEPO_POST_STORY;
+  if (typeof hook === "function"){
+    state.posting = true;
+    render();   /* 버튼을 "올리는 중…" 으로 잠근다 */
+    hook({
+      frameEl: document.querySelector(".st-frame"),
+      caption: state.caption,
+      lang: state.lang,
+      sel: state.storySel,
+      dateKey: state.dateKey,
+      quint: state.quint
+        ? { num: DATA.cards[state.quint.index].num,
+            name: DATA.cards[state.quint.index][state.lang].name }
+        : null
+    });
+    return;
+  }
   state.posted = true;
   render();
   toast(t().posted);
 }
+/* 어댑터가 결과를 돌려주는 문 — "posted" | "failed". 그 밖의 값은 실패로 본다.
+   기다리는 중이 아니면(화면을 떠났다) 늦게 온 답은 버린다. */
+window.SEPO_STORY_DONE = function(result){
+  if (!state.posting) return;
+  state.posting = false;
+  if (result === "posted"){
+    state.posted = true;
+    render();
+    toast(t().postedReal);
+    return;
+  }
+  render();   /* 버튼을 다시 살린다 — 화면은 스토리 그대로다 */
+  toast(t().postFailed);
+};
 function go(to){
   if (to === "story") openStory();
   else {

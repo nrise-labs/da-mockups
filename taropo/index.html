@@ -1222,6 +1222,9 @@ const state = {
   quint:null,
   /* 이번 리딩의 첫 문장 틀 번호(0..5). 프롬프트를 처음 만들 때 한 번 고르고 그 뒤로 고정. */
   frame:null,
+  /* 이번 리딩의 상태 한 벌 { flags, top, source }. 프롬프트를 처음 만들 때(또는 배지를
+     찍을 때) 한 번 정하고 그 뒤로 고정 — 되살린 리딩은 하루 기록의 것을 그대로 쓴다. */
+  st:null,
   flying:false,
   storySel:"quint",
   caption:"",
@@ -2263,7 +2266,7 @@ function liveClean(raw){
    판번호·소요시간·표본 로깅은 배포본 어댑터(window.SEPO_READER_SOURCE) 몫이다 —
    훅이 없는 이 목업은 출처와 목업 판번호만 적는다.
    ======================================================= */
-const DEBUG_PROMPT_VERSION = "v5";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
+const DEBUG_PROMPT_VERSION = "v6";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
 let DEBUG_ON = false;
 let debugLabel = "";   /* 지금 배지에 적을 문구 — render() 뒤에 debugPaint 가 옮긴다 */
 
@@ -2318,7 +2321,8 @@ function readerSource(source, text){
     try { sink(info); return; }
     catch (e){ /* 어댑터가 넘어져도 리딩은 그대로 간다 */ }
   }
-  debugSet(info.source + " \u00b7 " + DEBUG_PROMPT_VERSION);
+  debugSet(info.source + " \u00b7 " + DEBUG_PROMPT_VERSION +
+           " \u00b7 s:" + stateFor().top);
 }
 
 /* 표본 생성용 한 판 — 무작위 시드로 덱을 섞어 세 자리를 뽑는다.
@@ -2349,11 +2353,15 @@ function firstSentence(s){
   const m = str.match(/^[\s\S]*?[.。!！?？]/);
   return (m ? m[0] : str).trim();
 }
-function promptGist(d, i){
-  const c = cardCopy(DATA.cards[d.index], d.reversed);
+/* v6: 한 수 자리는 오늘의 상태가 정한다 — 상태가 있고 표에 그 카드가 있으면 상태별
+   행동문, 아니면 지금까지처럼 카드의 기본 행동(up.action). 마음·만남은 그대로다. */
+function promptGist(d, i, top){
+  const card = DATA.cards[d.index];
+  const c = cardCopy(card, d.reversed);
+  const act = (i === 2) ? (stateAction(card, state.lang, top) || c.body.action
+                           || firstSentence(c.body.text)) : "";
   return { name: c.name,
-           gist: (i === 2) ? (c.body.action || firstSentence(c.body.text))
-                           : firstSentence(c.body.text || c.body.story) };
+           gist: (i === 2) ? act : firstSentence(c.body.text || c.body.story) };
 }
 
 /* =======================================================
@@ -2457,17 +2465,388 @@ function frameOpener(lang, quintName, idx){
   });
 }
 
+/* =======================================================
+   STATE — 상태 연동 (v3.1) · 지금은 시뮬레이션 소스
+   "카드는 말투, 상태는 할 일." 카드가 오늘의 결을 정하고, 상태가 오늘 할 일을 정한다.
+   플래그 셋은 유저가 열어 둔 고리다. 우선순위 순으로 처음 참인 것이 오늘의 상태가 되고,
+   그 상태가 "한 수" 자리의 행동문을 갈아 끼운다(상태가 없으면 카드의 기본 행동 그대로).
+
+   상태의 출처는 셋이다.
+     bridge — 누가 window.SEPO_STATE 를 미리 깔아 두었을 때(앞으로 앱 배선이 들어올 자리)
+     sim    — ?debug=1 로 연 화면의 ?state= (테스터가 상태별 카피를 뽑아 보는 문)
+     none   — 아무것도 없을 때. 지금까지의 화면과 한 글자도 다르지 않다.
+   실제 배선(GET_CHAT_ROOMS · GET_USER_BEHAVIOR_STATS)은 아직이다 — 그 자리가 오면
+   bridge 갈래만 채우면 되고 나머지는 그대로 쓴다.
+   ⚠️ 이 블록은 build_gw.py 의 프롬프트 이식 구간(livePrompt 부터) **밖**에 있다.
+      배포본 livePrompt 가 stateFor()/stateLabel()/promptGist() 를 그대로 부른다.
+   ======================================================= */
+const STATE_IDS = ["unopened_match", "unanswered_room", "pending_like"];   /* 우선순위 순 */
+const STATE_LABELS = {
+  ko: {
+    unopened_match: "대화를 아직 시작하지 않은 매칭이 있음",
+    unanswered_room: "답하지 않은 메시지가 있음",
+    pending_like: "아직 반응하지 않은 받은 좋아요가 있음",
+    none: "없음"
+  },
+  ja: {
+    unopened_match: "まだ話し始めていないマッチがある",
+    unanswered_room: "返事していないメッセージがある",
+    pending_like: "まだ返していないいいねがある",
+    none: "なし"
+  }
+};
+/* 상태별 "한 수" 행동문 — 22장 × ko/ja × 3상태. SSoT 는 state_actions.json 이고
+   (da-mockups/taropo/states/ 에도 같은 파일이 있다) build_app.py 가 빌드마다 이 표와
+   그 파일이 한 글자도 다르지 않은지 확인한다. "none" 자리는 표에 없다 —
+   그때는 카드의 기본 행동(up.action)이 그대로 간다. */
+const STATE_ACTIONS = {
+  "0": {
+    "ko": {
+      "unopened_match": "새로 이어진 사람에게 첫 인사 하나",
+      "unanswered_room": "답 미룬 방, 짧게라도 한 줄",
+      "pending_like": "나를 좋아한 사람 프로필 한 번 열어보기"
+    },
+    "ja": {
+      "unopened_match": "新しくつながった人に、まずひとことあいさつ",
+      "unanswered_room": "返事を置いてた部屋に、短くても一行",
+      "pending_like": "好きって言ってくれた人のプロフィール、一度開いてみて"
+    }
+  },
+  "I": {
+    "ko": {
+      "unopened_match": "말 걸까 말까 하던 방, 오늘 첫마디 보내기",
+      "unanswered_room": "떠오른 답 그대로, 다듬지 말고 보내기",
+      "pending_like": "받은 좋아요에 한마디 붙여 답하기"
+    },
+    "ja": {
+      "unopened_match": "迷ってた部屋に、今日ひとこと送ってみて",
+      "unanswered_room": "浮かんだ返事、直さずそのまま送って",
+      "pending_like": "もらったいいねに、ひとこと添えて返して"
+    }
+  },
+  "II": {
+    "ko": {
+      "unopened_match": "이유 없이 끌리는 매칭 하나에 먼저 인사",
+      "unanswered_room": "뭐라 답할지 재지 말고 직감대로 한 줄",
+      "pending_like": "받은 좋아요 중 직감이 반응한 사람에게 답하기"
+    },
+    "ja": {
+      "unopened_match": "なんとなく気になるマッチに、先にあいさつ",
+      "unanswered_room": "返事を考えすぎず、直感で一行",
+      "pending_like": "もらったいいねの中で、直感が動いた人に返して"
+    }
+  },
+  "III": {
+    "ko": {
+      "unopened_match": "안 시작한 방 하나에 가볍게 안부 심기",
+      "unanswered_room": "서두르지 말고 다정한 답 한 줄",
+      "pending_like": "받은 좋아요, 급하게 고르지 말고 천천히 보기"
+    },
+    "ja": {
+      "unopened_match": "まだ始まってない部屋に、軽くあいさつを植えて",
+      "unanswered_room": "急がず、やさしい返事を一行",
+      "pending_like": "もらったいいね、急いで選ばずゆっくり見て"
+    }
+  },
+  "IV": {
+    "ko": {
+      "unopened_match": "내 기준에 맞는 매칭 하나 골라 먼저 인사",
+      "unanswered_room": "답장은 오늘 안에, 짧아도 분명하게",
+      "pending_like": "받은 좋아요 중 기준에 맞는 사람에게만 답하기"
+    },
+    "ja": {
+      "unopened_match": "自分の基準に合うマッチをひとつ選んで、先にあいさつ",
+      "unanswered_room": "返事は今日中に、短くてもはっきり",
+      "pending_like": "もらったいいねは、基準に合う人にだけ返して"
+    }
+  },
+  "V": {
+    "ko": {
+      "unopened_match": "매칭된 지 오래된 방부터 정중히 인사",
+      "unanswered_room": "기다리게 한 방에 사과 한 줄 넣어 답하기",
+      "pending_like": "받은 좋아요에 늦더라도 예의 있게 답하기"
+    },
+    "ja": {
+      "unopened_match": "マッチしてから時間がたった部屋から、ていねいにあいさつ",
+      "unanswered_room": "待たせた部屋に、ひとこと謝ってから返して",
+      "pending_like": "もらったいいねに、遅くても礼儀正しく返して"
+    }
+  },
+  "VI": {
+    "ko": {
+      "unopened_match": "제일 설레는 매칭에 먼저 말 걸기",
+      "unanswered_room": "답장 미룬 방 중 마음 가는 곳부터",
+      "pending_like": "받은 좋아요 중 심장이 먼저 반응한 사람에게 답하기"
+    },
+    "ja": {
+      "unopened_match": "いちばんときめくマッチに、先に声をかけて",
+      "unanswered_room": "返事を置いてた部屋の中で、気になるところから",
+      "pending_like": "もらったいいねの中で、心が先に動いた人に返して"
+    }
+  },
+  "VII": {
+    "ko": {
+      "unopened_match": "매칭 중 하나 골라 바로 인사",
+      "unanswered_room": "미루던 답장, 지금 보내기",
+      "pending_like": "마음 가는 좋아요에 바로 좋아요로 답하기"
+    },
+    "ja": {
+      "unopened_match": "マッチをひとつ選んで、すぐあいさつ",
+      "unanswered_room": "先延ばしにしてた返事、今送って",
+      "pending_like": "気になるいいねに、そのままいいねで返して"
+    }
+  },
+  "VIII": {
+    "ko": {
+      "unopened_match": "안 시작한 방에 부담 없는 안부 하나",
+      "unanswered_room": "재촉 없이, 부드러운 답 한 줄",
+      "pending_like": "받은 좋아요에 가볍게 고맙다는 인사"
+    },
+    "ja": {
+      "unopened_match": "始まってない部屋に、気軽なあいさつをひとつ",
+      "unanswered_room": "急かさずに、やわらかい返事を一行",
+      "pending_like": "もらったいいねに、軽くありがとうのあいさつ"
+    }
+  },
+  "IX": {
+    "ko": {
+      "unopened_match": "다 하려 말고 하나만 골라 조용히 인사",
+      "unanswered_room": "읽고 둔 메시지, 오늘 밤 안에 답하기",
+      "pending_like": "받은 좋아요 목록을 천천히 한 번 보기"
+    },
+    "ja": {
+      "unopened_match": "全部じゃなくて、ひとつ選んで静かにあいさつ",
+      "unanswered_room": "読んだまま置いた一通、今夜のうちに返して",
+      "pending_like": "もらったいいねの一覧を、ゆっくり一度見て"
+    }
+  },
+  "X": {
+    "ko": {
+      "unopened_match": "평소라면 안 골랐을 매칭에 먼저 인사",
+      "unanswered_room": "오래 둔 방일수록 오늘 답해보기",
+      "pending_like": "예상 밖의 좋아요에 한 번 답해보기"
+    },
+    "ja": {
+      "unopened_match": "いつもなら選ばないマッチに、先にあいさつ",
+      "unanswered_room": "長く置いた部屋ほど、今日返してみて",
+      "pending_like": "意外ないいねに、一度返してみて"
+    }
+  },
+  "XI": {
+    "ko": {
+      "unopened_match": "상대가 먼저 왔던 방이면 이번엔 내가 인사",
+      "unanswered_room": "받은 만큼 돌려주는 답장 하나",
+      "pending_like": "받은 좋아요, 이번엔 내가 먼저 답하기"
+    },
+    "ja": {
+      "unopened_match": "相手から来てた部屋なら、今度は自分からあいさつ",
+      "unanswered_room": "もらった分だけ返す返事をひとつ",
+      "pending_like": "もらったいいね、今度は自分から返して"
+    }
+  },
+  "XII": {
+    "ko": {
+      "unopened_match": "안 시작한 방의 상대를 처음처럼 다시 보고 인사",
+      "unanswered_room": "답 대신 질문 하나로 대화 뒤집기",
+      "pending_like": "받은 좋아요, 사진 말고 소개글부터 읽기"
+    },
+    "ja": {
+      "unopened_match": "始まってない部屋の相手を、初めて見るつもりで見てからあいさつ",
+      "unanswered_room": "返事のかわりに、質問をひとつ投げてみて",
+      "pending_like": "もらったいいねは、写真より先に自己紹介を読んで"
+    }
+  },
+  "XIII": {
+    "ko": {
+      "unopened_match": "마음 없는 방은 놓고, 남은 하나에 인사",
+      "unanswered_room": "습관처럼 미루던 답, 오늘 끊고 보내기",
+      "pending_like": "마음 없는 좋아요는 흘려보내고 하나에만 답하기"
+    },
+    "ja": {
+      "unopened_match": "気持ちのない部屋は置いて、残ったひとつにあいさつ",
+      "unanswered_room": "くせで先延ばしにしてた返事、今日で断ち切って送って",
+      "pending_like": "気持ちのないいいねは流して、ひとつだけ返して"
+    }
+  },
+  "XIV": {
+    "ko": {
+      "unopened_match": "안 시작한 방에 상대 속도에 맞춘 짧은 인사",
+      "unanswered_room": "상대 답장 길이에 맞춰 답하기",
+      "pending_like": "받은 좋아요에 급하지 않게 하루 안에 답하기"
+    },
+    "ja": {
+      "unopened_match": "始まってない部屋に、相手のペースに合わせた短いあいさつ",
+      "unanswered_room": "相手の返事の長さに合わせて返して",
+      "pending_like": "もらったいいねに、あわてず今日中に返して"
+    }
+  },
+  "XV": {
+    "ko": {
+      "unopened_match": "미련 남은 곳 말고 새 매칭에 인사",
+      "unanswered_room": "매달리는 답 말고 담백한 한 줄",
+      "pending_like": "익숙한 타입만 고르지 말고 다른 좋아요 보기"
+    },
+    "ja": {
+      "unopened_match": "未練のあるところじゃなく、新しいマッチにあいさつ",
+      "unanswered_room": "すがる返事じゃなく、さらっと一行",
+      "pending_like": "いつものタイプばかりじゃなく、ほかのいいねも見て"
+    }
+  },
+  "XVI": {
+    "ko": {
+      "unopened_match": "안 시작한 방 중 마음 없는 곳은 정리하기",
+      "unanswered_room": "오래 멈춘 방은 닫고, 살아 있는 방에 답하기",
+      "pending_like": "마음 없는 좋아요는 흘려보내기"
+    },
+    "ja": {
+      "unopened_match": "始まってない部屋のうち、気持ちのないところは片づけて",
+      "unanswered_room": "長く止まった部屋は閉じて、生きてる部屋に返して",
+      "pending_like": "気持ちのないいいねは流して"
+    }
+  },
+  "XVII": {
+    "ko": {
+      "unopened_match": "나를 먼저 좋아해 준 매칭에 인사",
+      "unanswered_room": "기다려 준 사람에게 답장 먼저",
+      "pending_like": "받은 좋아요 중 한 명에게 답하기"
+    },
+    "ja": {
+      "unopened_match": "先に好きって言ってくれたマッチにあいさつ",
+      "unanswered_room": "待ってくれてた人に、返事を先に",
+      "pending_like": "もらったいいねの中から、ひとりに返して"
+    }
+  },
+  "XVIII": {
+    "ko": {
+      "unopened_match": "헷갈리는 매칭, 돌려 말고 먼저 인사하기",
+      "unanswered_room": "애매하게 둔 답, 직접 묻는 말로 보내기",
+      "pending_like": "진심인지 궁금한 좋아요, 프로필 다시 읽기"
+    },
+    "ja": {
+      "unopened_match": "迷うマッチほど、遠回しにせず先にあいさつ",
+      "unanswered_room": "あいまいに置いた返事、まっすぐ聞く言葉で送って",
+      "pending_like": "本気か気になるいいね、プロフィールをもう一度読んで"
+    }
+  },
+  "XIX": {
+    "ko": {
+      "unopened_match": "가장 마음 가는 매칭에 밝게 먼저 인사",
+      "unanswered_room": "미루던 답, 밝은 한마디로 보내기",
+      "pending_like": "받은 좋아요에 활짝 좋아요로 답하기"
+    },
+    "ja": {
+      "unopened_match": "いちばん気になるマッチに、明るく先にあいさつ",
+      "unanswered_room": "先延ばしの返事、明るいひとことで送って",
+      "pending_like": "もらったいいねに、にっこりいいねで返して"
+    }
+  },
+  "XX": {
+    "ko": {
+      "unopened_match": "오래 둔 매칭에 다시 인사해 보기",
+      "unanswered_room": "끊긴 줄 알았던 방에 답장 다시 잇기",
+      "pending_like": "지나쳤던 좋아요, 다시 한번 보기"
+    },
+    "ja": {
+      "unopened_match": "長く置いたマッチに、もう一度あいさつしてみて",
+      "unanswered_room": "切れたと思ってた部屋に、返事をもう一度つないで",
+      "pending_like": "見逃してたいいね、もう一度見てみて"
+    }
+  },
+  "XXI": {
+    "ko": {
+      "unopened_match": "매칭 하나에 인사하고 만날 얘기까지 꺼내기",
+      "unanswered_room": "답장에 만날 날짜 제안 넣기",
+      "pending_like": "받은 좋아요에 답하고 대화까지 열기"
+    },
+    "ja": {
+      "unopened_match": "マッチひとつにあいさつして、会う話まで出してみて",
+      "unanswered_room": "返事に、会う日の提案を入れて",
+      "pending_like": "もらったいいねに返して、会話まで開いて"
+    }
+  }
+};
+
+/* 우선순위 — 참인 것 중 앞선 하나가 오늘의 상태다. 하나도 없으면 "none". */
+function stateTopOf(flags){
+  for (let i = 0; i < STATE_IDS.length; i++){
+    if (flags && flags[STATE_IDS[i]] === true) return STATE_IDS[i];
+  }
+  return "none";
+}
+/* 프롬프트에 적을 상태 한 줄 — 라벨은 사람이 읽는 말이다(플래그 id 가 아니다). */
+function stateLabel(lang, top){
+  const m = STATE_LABELS[(lang === "ja") ? "ja" : "ko"];
+  return m[top] || m.none;
+}
+/* 이 카드의 이 상태 행동문. 표에 없으면 빈 문자열 — 부르는 쪽이 기본 행동으로 간다. */
+function stateAction(card, lang, top){
+  if (!card || !top || top === "none") return "";
+  const byCard = STATE_ACTIONS[card.num];
+  if (!byCard) return "";
+  const byLang = byCard[(lang === "ja") ? "ja" : "ko"];
+  return (byLang && byLang[top]) ? byLang[top] : "";
+}
+/* 시뮬레이션 스위치 — ?debug=1 로 연 화면에서만 열린다.
+   공개 목업에서는 이 문이 아예 없다(유저 화면이 주소창으로 흔들리지 않게). */
+function stateParam(){
+  if (!DEBUG_ON) return "";
+  try { return String(new URL(window.location.href).searchParams.get("state") || "").trim(); }
+  catch (e){ return ""; }
+}
+/* 상태 한 벌 = { flags, top, source }.
+   i 는 표본 인덱스다 — rr 는 i mod 4 로 돌고, rand 는 표본마다 새로 던진다. */
+function stateResolve(i){
+  const flags = { unopened_match:false, unanswered_room:false, pending_like:false };
+  const b = window.SEPO_STATE;
+  if (b && typeof b === "object" && !Array.isArray(b)){
+    for (let k = 0; k < STATE_IDS.length; k++){
+      if (b[STATE_IDS[k]] === true) flags[STATE_IDS[k]] = true;
+    }
+    return { flags: flags, top: stateTopOf(flags), source: "bridge" };
+  }
+  const p = stateParam();
+  if (p){
+    const n = (typeof i === "number" && i >= 0) ? i : 0;
+    if (p === "rand"){
+      for (let k = 0; k < STATE_IDS.length; k++) flags[STATE_IDS[k]] = Math.random() < 0.5;
+    } else if (p === "rr"){
+      const ring = STATE_IDS.concat(["none"]);
+      const pick = ring[n % ring.length];
+      if (pick !== "none") flags[pick] = true;
+    } else if (p !== "none"){
+      const parts = p.split(",");
+      for (let k = 0; k < parts.length; k++){
+        const id = parts[k].trim();
+        if (STATE_IDS.indexOf(id) > -1) flags[id] = true;
+      }
+    }
+    return { flags: flags, top: stateTopOf(flags), source: "sim" };
+  }
+  return { flags: flags, top: "none", source: "none" };
+}
+/* 이번 리딩의 상태 — 한 판에 한 번만 정하고, 그 뒤로는 이 판이 끝날 때까지 같다
+   (틀(frameFor)과 같은 자물쇠다). 하루 기록에도 남겨 되살린 리딩이 같은 말을 하게. */
+function stateFor(){
+  if (!state.st || typeof state.st !== "object"){
+    state.st = stateResolve();
+    recSetState(state.st);
+  }
+  return state.st;
+}
+
 /* 프롬프트 — 오늘 뽑힌 리딩 한 벌을 그대로 재료로 넘긴다.
    두 언어를 따로 쓴다. 번역이 아니라 화법이 다르기 때문이다. */
 function livePrompt(){
   const q = state.quint;
   const qCard = DATA.cards[q.index];
   const qCopy = cardCopy(qCard, q.reversed);
-  const g = state.draws.map(promptGist);
+  const st = stateFor();   /* 이번 판의 상태 — 재료(한 수)와 프롬프트 줄이 같은 것을 본다 */
+  const g = state.draws.map(function(d, i){ return promptGist(d, i, st.top); });
   const qn = qCard[state.lang].name;
   const qv = qCopy.body.verdict || qCopy.body.text;
   const wx = weather(state.draws).text;
   const op = frameOpener(state.lang, qn, frameFor());   /* 이번 판의 첫 문장 틀 */
+  const sl = stateLabel(state.lang, st.top);            /* 지금 상태 한 줄(없으면 없음/なし) */
   if (state.lang === "ja"){
     return [
       "きみは「タロポ」。マッチングアプリのマスコットで、カードを読んでくれるやさしい友だちだよ。タメ口（「〜だよ」「〜してみて」）で話して。",
@@ -2479,6 +2858,7 @@ function livePrompt(){
       "- 2文はひとりが続けて話すようにつながっていること。行動が1文目の雰囲気と食い違うなら、行動の言い方を1文目に合わせて直す（落ち着いた日なら「ゆっくりひとつだけ」のように）。",
       "- たとえ・比喩は禁止。星・光・風・水・季節・扉・道・一歩・流れ・気配・温度・天気のようなことばは使わない。プロフィール、いいね、マッチ、メッセージ、返事、会話みたいに、アプリで実際にやることのことばだけ使う。",
       "- 2文目は「〜してみて」の形で、やることはひとつだけ。ふたつ以上たのまない。アプリを閉じる・今日は使わない、といったことは言わない。",
+      "- 「いまの状態」が「なし」でなければ、1文目にその状況をやさしいことばで入れ、2文目はその状況をほどく「今日の行動」をひとつ書く。「なし」なら今までどおり。",
       "- 今日の空模様のことばは画面にもうあるので、そのまま繰り返さない。文末を毎回「日だよ」で終えず、変えてみて。",
       "- 相手は「きみ」と呼び、「あなた」は使わない。",
       "- 確率・点数・相性の数値・結果の予測・保証のことばは禁止。健康とお金の話も禁止。",
@@ -2495,6 +2875,7 @@ function livePrompt(){
       "- ひと手の席：" + g[2].name + " — 今日の行動：" + g[2].gist,
       "- 今日のカード（まとめ）：" + qn + " — " + qv,
       "- 今日の空模様：" + wx,
+      "- いまの状態：" + sl,
       "- 1文目の型：" + op,
       "",
       "任務：ルールどおりにちょうど2文。1文目は上の「1文目の型」で始めて今日の恋愛の状況だけを書き、2文目はひと手の席の行動をやさしいことばで。"
@@ -2510,6 +2891,7 @@ function livePrompt(){
     "- 두 문장은 한 사람이 이어서 말하듯 맞아야 해. 행동이 첫 문장 분위기와 어긋나면, 행동의 말투를 첫 문장 분위기에 맞게 바꿔 써(차분한 날이면 \"천천히 하나만\" 식으로).",
     "- 은유·비유 금지. 별·빛·바람·물·계절·문·길·걸음·흐름·기운·온도·날씨 같은 말은 쓰지 마. 프로필, 좋아요, 매칭, 메시지, 답장, 대화처럼 앱에서 실제로 하는 일의 말만 써.",
     "- 둘째 문장은 \"~해 봐\" 꼴로 행동 하나만. 두 가지 이상 시키지 마. 앱을 닫거나 오늘은 앱을 쓰지 말라는 말은 하지 마.",
+    "- \"지금 상태\"가 \"없음\"이 아니면 첫 문장에 그 상황을 쉬운 말로 녹이고, 둘째 문장은 그 상황을 푸는 \"오늘의 행동\" 하나를 써. \"없음\"이면 지금처럼 써.",
     "- 오늘의 날씨 문구는 화면에 이미 있으니 그 말을 그대로 되풀이하지 마. 문장 끝을 매번 \"날이야\"로 끝내지 말고 바꿔 봐.",
     "- 상대는 \"너\"라고 부르고 \"당신\"은 쓰지 마.",
     "- 확률·점수·궁합 수치·성공 예측·보장 표현 금지. 건강·금전 얘기 금지.",
@@ -2526,6 +2908,7 @@ function livePrompt(){
     "- 한 수 자리: " + g[2].name + " — 오늘의 행동: " + g[2].gist,
     "- 오늘의 카드(종합): " + qn + " — " + qv,
     "- 오늘의 날씨: " + wx,
+    "- 지금 상태: " + sl,
     "- 첫 문장 틀: " + op,
     "",
     "임무: 규칙대로 딱 두 문장. 첫 문장은 위 \"첫 문장 틀\"로 시작해 오늘의 연애 상황만 쓰고, 둘째 문장은 한 수 자리의 행동을 쉬운 말로."
@@ -2896,6 +3279,7 @@ function startDraw(){
   state.draws = [];
   state.quint = null;
   state.frame = null;   /* 새 판 = 새 틀 — 다음 프롬프트를 만들 때 고른다 */
+  state.st = null;      /* 새 판 = 새 상태 — 다음 프롬프트(또는 배지)에서 정한다 */
   state.posted = false;
   state.postedReal = false;
   state.restored = false;   /* 새로 뽑은 판 — 되살린 리딩이 아니다 */
@@ -3002,6 +3386,7 @@ function recSave(){
     }),
     quint: state.quint,
     frame: (typeof state.frame === "number") ? state.frame : null,
+    st: (state.st && typeof state.st === "object") ? state.st : null,
     lang: state.lang,
     readerText: state.readerLive[state.lang] || null,
     ts: Date.now()
@@ -3013,6 +3398,13 @@ function recSetReader(line){
   if (!r || !line || r.seedKey !== state.seedKey) return;
   r.readerText = line;
   r.lang = state.lang;
+  recWrite(r);
+}
+/* 오늘의 상태도 같은 자물쇠로 — 되살린 리딩이 같은 상태를 말하게. */
+function recSetState(st){
+  const r = recRead();
+  if (!r || !st || r.seedKey !== state.seedKey) return;
+  r.st = st;
   recWrite(r);
 }
 /* 첫 문장 틀 번호도 같은 자물쇠로 기록에 남긴다 — 되살린 리딩이 같은 틀을 쓰게. */
@@ -3040,6 +3432,7 @@ function openToday(){
   });
   state.quint = (r.quint && typeof r.quint.index === "number") ? r.quint : quintOf(state.draws);
   state.frame = (typeof r.frame === "number") ? r.frame : null;   /* 되살린 판은 그날의 틀 그대로 */
+  state.st = (r.st && typeof r.st === "object") ? r.st : null;    /* 상태도 그날의 것 그대로 */
   state.readerLive = { ko:null, ja:null };
   if (r.readerText) state.readerLive[r.lang || state.lang] = r.readerText;
   state.restored = true;   /* 되살린 리딩 — 오늘 새로 만든 문장이 아니다 */

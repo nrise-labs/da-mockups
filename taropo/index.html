@@ -2244,10 +2244,25 @@ function liveTwo(s){
 /* 화면에 올려도 되는 문장인지 정한다. 아니면 빈 문자열(=문장 틀로 폴백).
    v2: 두 문장이 상한이다 — 셋째 문장부터는 잘라 버리고, 그러고도 LIVE_MAX 를 넘으면
    한 화면에 안 읽히는 문장이라 사람이 쓴 문장 틀에 자리를 내준다. */
-function liveClean(raw){
+/* 「」 보정(v8) — 모델이 오늘의 카드 이름을 괄호 없이 쓴 줄을 한 번만 감싼다.
+   줄에 「 가 하나도 없고 그 이름이 줄에 그대로 있을 때만, 처음 나온 자리에 한 번.
+   이미 「」를 쓴 줄과 이름이 안 보이는 줄은 한 글자도 건드리지 않는다(순수 함수). */
+function liveFixName(s, name){
+  const t = String(s == null ? "" : s);
+  const nm = String(name == null ? "" : name);
+  if (!nm || t.indexOf("\u300c") !== -1) return t;
+  const i = t.indexOf(nm);
+  if (i === -1) return t;
+  return t.slice(0, i) + "\u300c" + nm + "\u300d" + t.slice(i + nm.length);
+}
+function liveClean(raw, name){
   let s = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
   if (!s || LIVE_BAN.test(s)) return "";
   s = liveTwo(s);
+  /* 두 문장으로 자른 뒤, 길이 문(LIVE_MAX) 앞에서 「」를 채운다 — 보정이 늘리는 길이는
+     두 글자뿐이라 문이 재는 길이가 곧 화면에 설 길이다. name 을 주지 않으면 화면의 판.
+     (표본 모드는 제 판의 이름을 넘긴다 — 화면의 카드 이름을 끼워 넣으면 안 되니까.) */
+  s = liveFixName(s, (name == null) ? frameQuintName() : name);
   if (s.length > LIVE_MAX){
     if (!liveLongWarned){
       liveLongWarned = true;
@@ -2267,14 +2282,14 @@ function liveClean(raw){
    판번호·소요시간·표본 로깅은 배포본 어댑터(window.SEPO_READER_SOURCE) 몫이다 —
    훅이 없는 이 목업은 출처와 목업 판번호만 적는다.
    ======================================================= */
-const DEBUG_PROMPT_VERSION = "v7";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
+const DEBUG_PROMPT_VERSION = "v8";   /* 목업의 프롬프트 판 — 배포본은 SSoT 값을 쓴다 */
 let DEBUG_ON = false;
 let debugLabel = "";   /* 지금 배지에 적을 문구 — render() 뒤에 debugPaint 가 옮긴다 */
 
 function bootDebug(){
   try { DEBUG_ON = new URL(window.location.href).searchParams.get("debug") === "1"; }
   catch (e){ DEBUG_ON = false; }
-  if (DEBUG_ON) frameSelfCheck();
+  if (DEBUG_ON){ frameSelfCheck(); avoidSelfCheck(); }
 }
 
 /* 조사 자가검사(v5) — 받침 있는 이름과 없는 이름을 섞어 틀이 제대로 읽히는지 본다.
@@ -2298,6 +2313,37 @@ function frameSelfCheck(){
   const bad = out.filter(function(r){ return !r.ok; });
   if (bad.length) console.warn("[tarot] koParticle self-check failed", bad);
   try { window.__TAROT_FRAME_SELFCHECK = out; } catch (e){ /* 저장이 막혀도 그만이다 */ }
+  return out;
+}
+/* 틀 회피 자가검사(v8) — ja 「…日」로 끝나는 카드(脱皮の日)에서는 "…の日" 틀(1·5)이
+   열두 판을 돌려도 한 번도 뽑히지 않고, 나머지 넷은 LRU 로 그대로 돈다.
+   ?debug=1 로 열 때만 돌고 결과를 window.__TAROT_AVOID_SELFCHECK 에 남긴다(검증기가 읽는다).
+   기기의 틀 목록은 한 톨도 건드리지 않는다 — 지금 목록을 적어 두고 돌린 뒤 그대로 되돌린다. */
+function avoidSelfCheck(){
+  const av = frameAvoid("ja", "\u8131\u76ae\u306e\u65e5");
+  const key = frameKey();
+  const raw = frameRaw(key);       /* 지금 값 — 없으면 null */
+  const picks = [];
+  let lru = [];
+  try {
+    frameWrite([]);
+    for (let i = 0; i < 12; i++){
+      picks.push(framePick("avoid-selfcheck:" + i, av));
+      lru = frameRead();
+    }
+  } finally { frameRestore(key, raw); }   /* 있던 그대로 — 없던 키는 없던 채로 */
+  const rr = [];
+  for (let i = 0; i < 12; i++) rr.push(frameRR(i, av));
+  const out = {
+    avoid_ja_day: av,
+    avoid_ja_other: frameAvoid("ja", "\u592a\u967d\u306e\u3072\u3056\u3057"),
+    avoid_ko: frameAvoid("ko", "\ud5c8\ubb3c\ubc97\uae30"),
+    picks: picks, lru: lru, rr: rr, kept: frameRaw(key)
+  };
+  if (picks.filter(function(i){ return av.indexOf(i) !== -1; }).length){
+    console.warn("[tarot] frame-avoid self-check failed", picks);
+  }
+  try { window.__TAROT_AVOID_SELFCHECK = out; } catch (e){ /* 저장이 막혀도 그만이다 */ }
   return out;
 }
 /* 배지 문구를 정하고 바로 한 번 그린다. 화면이 다시 그려지면 debugPaint 가 다시 얹는다. */
@@ -2430,6 +2476,16 @@ function frameWrite(list){
   try { window.localStorage.setItem(frameKey(), JSON.stringify(list)); }
   catch (e){ /* 못 쓰면 회전 기억이 없을 뿐, 이번 판은 그대로 간다 */ }
 }
+/* 자가검사가 저장소를 원래대로 되돌리기 위한 두 조각(v8) — 값을 해석하지 않고 그대로 다룬다. */
+function frameRaw(key){
+  try { return window.localStorage.getItem(key); } catch (e){ return null; }
+}
+function frameRestore(key, raw){
+  try {
+    if (raw === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, raw);
+  } catch (e){ /* 못 되돌려도 화면은 그대로 간다 */ }
+}
 /* 방금 쓴 틀을 목록 맨 뒤로 보낸다 — 맨 앞이 언제나 가장 오래된 것이다. */
 function frameUse(i){
   const used = frameRead().filter(function(n){ return n !== i; });
@@ -2437,20 +2493,59 @@ function frameUse(i){
   while (used.length > FRAME_N) used.shift();
   frameWrite(used);
 }
-/* 이번에 쓸 틀 하나. 안 쓴 게 남았으면 그중에서 시드로, 다 썼으면 가장 오래된 것을 되돌려 쓴다. */
-function framePick(seedKey){
+/* 피할 틀(v8) — ja 틀 1·5 는 "…の日" 로 끝난다. 이름이 이미 「…日」인 카드(脱皮の日)에서는
+   "「脱皮の日」の日" 이 되어 버리므로 그 두 틀은 뽑지 않는다.
+   ko 는 이름이 "날"로 끝나는 카드가 없어 피할 것이 없다. */
+const FRAME_AVOID_JA_DAY = [1, 5];
+function frameAvoid(lang, quintName){
+  const nm = String(quintName == null ? "" : quintName);
+  if (lang === "ja" && nm.slice(-1) === "\u65e5") return FRAME_AVOID_JA_DAY.slice();
+  return [];
+}
+/* 이번 판의 "오늘의 카드" 이름 — 첫 문장 틀의 X 자리를 채우는 바로 그 이름이다.
+   src 를 주면 그 판(표본 모드의 sampleDraw 결과), 없으면 화면의 판이다. */
+function frameQuintName(src, lang){
+  try {
+    const S = (src && src.quint) ? src : state;
+    const lg = (lang === "ja" || lang === "ko") ? lang : state.lang;
+    const q = S.quint;
+    if (!q || typeof q.index !== "number") return "";
+    return String(DATA.cards[q.index][lg].name || "");
+  } catch (e){ return ""; }
+}
+/* 라운드로빈 한 칸(표본 모드) — 피할 틀은 건너뛴다. 피할 게 없으면 n % FRAME_N 그대로다. */
+function frameRR(n, avoid){
+  const av = Array.isArray(avoid) ? avoid : [];
+  const ok = [];
+  for (let i = 0; i < FRAME_N; i++) if (av.indexOf(i) === -1) ok.push(i);
+  if (!ok.length) return n % FRAME_N;
+  return ok[n % ok.length];
+}
+/* 이번에 쓸 틀 하나. 안 쓴 게 남았으면 그중에서 시드로, 다 썼으면 가장 오래된 것을 되돌려 쓴다.
+   어느 쪽이든 avoid 에 든 번호는 건너뛴다 — 다 썼을 때는 피할 것을 뺀 가장 오래된 것이다. */
+function framePick(seedKey, avoid){
   const used = frameRead();
+  const av = Array.isArray(avoid) ? avoid : [];
   const free = [];
-  for (let i = 0; i < FRAME_N; i++) if (used.indexOf(i) === -1) free.push(i);
-  const idx = free.length ? free[mix32(djb2(String(seedKey || "") + "|frame")) % free.length]
-                          : used[0];
+  for (let i = 0; i < FRAME_N; i++){
+    if (used.indexOf(i) === -1 && av.indexOf(i) === -1) free.push(i);
+  }
+  let idx;
+  if (free.length){
+    idx = free[mix32(djb2(String(seedKey || "") + "|frame")) % free.length];
+  } else {
+    idx = used.length ? used[0] : 0;
+    for (let i = 0; i < used.length; i++){
+      if (av.indexOf(used[i]) === -1){ idx = used[i]; break; }
+    }
+  }
   frameUse(idx);
   return idx;
 }
 /* 이번 리딩의 틀 — 프롬프트를 처음 만들 때 한 번 고르고, 그 뒤로는 이 판이 끝날 때까지 같다. */
 function frameFor(){
   if (typeof state.frame !== "number"){
-    state.frame = framePick(state.seedKey);
+    state.frame = framePick(state.seedKey, frameAvoid(state.lang, frameQuintName()));
     recSetFrame(state.frame);   /* 하루 기록에도 — 되살린 리딩이 같은 틀을 말한다 */
   }
   return state.frame;
@@ -2611,12 +2706,12 @@ const STATE_ACTIONS = {
     "ko": {
       "unopened_match": "안 시작한 방에 부담 없는 안부 하나",
       "unanswered_room": "재촉 없이, 부드러운 답 한 줄",
-      "pending_like": "받은 좋아요에 가볍게 고맙다는 인사"
+      "pending_like": "고마웠던 좋아요에 가볍게 좋아요 돌려주기"
     },
     "ja": {
       "unopened_match": "始まってない部屋に、気軽なあいさつをひとつ",
       "unanswered_room": "急かさずに、やわらかい返事を一行",
-      "pending_like": "もらったいいねに、軽くありがとうのあいさつ"
+      "pending_like": "うれしかったいいねに、軽くいいねを返して"
     }
   },
   "IX": {
@@ -3009,13 +3104,14 @@ function livePrompt(){
       "きみは「タロポ」。マッチングアプリのマスコットで、カードを読んでくれるやさしい友だちだよ。タメ口（「〜だよ」「〜してみて」）で話して。",
       "かくれたルール：カードの読み手の目で読むけど、「タロット」「占い」「リーダー」みたいな肩書きのことばは文に入れない。",
       "ルール：",
-      "- ちょうど2文だけ書く。1文目は今日の恋愛の状況をやさしいことばで一行（35文字前後）、2文目は今日やることをひとつ具体的に。全体で60〜75文字。",
+      "- ちょうど2文だけ書く。1文目は今日の恋愛の状況をやさしいことばで一行（35文字前後）、2文目は今日やることをひとつ具体的に。全体で60〜75文字、最大80文字。",
       "- 1文目にまとめのカード名を「」に入れて一度だけ書く。ほかのカード名は絶対に使わない。カード名に入っている語（庭、戦車、鐘、タマゴ、ランタン、天秤など）も使わない。",
       "- 1文目はプロンプトで渡した「1文目の型」で始める。1文目には行動を入れず、今日の状況だけを書く。",
       "- 2文はひとりが続けて話すようにつながっていること。行動が1文目の雰囲気と食い違うなら、行動の言い方を1文目に合わせて直す（落ち着いた日なら「ゆっくりひとつだけ」のように）。",
       "- たとえ・比喩は禁止。星・光・風・水・季節・扉・道・一歩・流れ・気配・温度・天気のようなことばは使わない。プロフィール、いいね、マッチ、メッセージ、返事、会話みたいに、アプリで実際にやることのことばだけ使う。",
       "- 2文目は「〜してみて」の形で、やることはひとつだけ。ふたつ以上たのまない。アプリを閉じる・今日は使わない、といったことは言わない。",
       "- 「今日の行動」は意味を変えず、言い方だけ整える。アプリにない機能（いいねの取り消しなど）を作らない。",
+      "- もらったいいねにメッセージ・返事・あいさつは送れない。もらったいいねにできるのは、プロフィールを開く、いいねを返す（そうするとマッチになる）、見送る、の3つだけ。「返事」はメッセージをくれた相手にだけ使う。",
       "- 「いまの状態」が「なし」でなければ、1文目にその状況をやさしいことばで入れ、2文目はその状況をほどく「今日の行動」をひとつ書く。「なし」なら今までどおり。",
       "- 今日の空模様のことばは画面にもうあるので、そのまま繰り返さない。文末を毎回「日だよ」で終えず、変えてみて。",
       "- 相手は「きみ」と呼び、「あなた」は使わない。",
@@ -3050,6 +3146,7 @@ function livePrompt(){
     "- 은유·비유 금지. 별·빛·바람·물·계절·문·길·걸음·흐름·기운·온도·날씨 같은 말은 쓰지 마. 프로필, 좋아요, 매칭, 메시지, 답장, 대화처럼 앱에서 실제로 하는 일의 말만 써.",
     "- 둘째 문장은 \"~해 봐\" 꼴로 행동 하나만. 두 가지 이상 시키지 마. 앱을 닫거나 오늘은 앱을 쓰지 말라는 말은 하지 마.",
     "- \"오늘의 행동\"은 뜻을 바꾸지 말고 표현만 다듬어. 앱에 없는 기능(좋아요 취소 같은 것)을 지어내지 마.",
+    "- 받은 좋아요에는 메시지·답장·인사를 보낼 수 없어. 받은 좋아요로 할 수 있는 건 프로필 열어보기, 좋아요 돌려주기(그러면 매칭이 돼), 넘기기뿐이야. \"답장\"은 메시지를 받은 상대에게만 써.",
     "- \"지금 상태\"가 \"없음\"이 아니면 첫 문장에 그 상황을 쉬운 말로 녹이고, 둘째 문장은 그 상황을 푸는 \"오늘의 행동\" 하나를 써. \"없음\"이면 지금처럼 써.",
     "- 오늘의 날씨 문구는 화면에 이미 있으니 그 말을 그대로 되풀이하지 마. 문장 끝을 매번 \"날이야\"로 끝내지 말고 바꿔 봐.",
     "- 상대는 \"너\"라고 부르고 \"당신\"은 쓰지 마.",

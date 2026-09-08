@@ -2472,12 +2472,17 @@ function frameOpener(lang, quintName, idx){
    플래그 셋은 유저가 열어 둔 고리다. 우선순위 순으로 처음 참인 것이 오늘의 상태가 되고,
    그 상태가 "한 수" 자리의 행동문을 갈아 끼운다(상태가 없으면 카드의 기본 행동 그대로).
 
-   상태의 출처는 셋이다.
-     bridge — 누가 window.SEPO_STATE 를 미리 깔아 두었을 때(앞으로 앱 배선이 들어올 자리)
+   상태의 출처는 셋이고, 읽는 순서가 곧 규칙이다.
      sim    — ?debug=1 로 연 화면의 ?state= (테스터가 상태별 카피를 뽑아 보는 문)
-     none   — 아무것도 없을 때. 지금까지의 화면과 한 글자도 다르지 않다.
-   실제 배선(GET_CHAT_ROOMS · GET_USER_BEHAVIOR_STATS)은 아직이다 — 그 자리가 오면
-   bridge 갈래만 채우면 되고 나머지는 그대로 쓴다.
+     bridge — 누가 window.SEPO_STATE 를 미리 깔아 두었을 때(앱 안에서는 어댑터가 깐다)
+     none   — 둘 다 없을 때. 지금까지의 화면과 한 글자도 다르지 않다.
+   시뮬이 브릿지보다 앞이다. 앱 안에서는 브릿지가 진짜 상태를 깔아 주므로, 그것을 이길
+   문이 없으면 테스터는 제 계정이 가진 상태 하나밖에 볼 수 없다. ?debug=1&state=none 은
+   그 반대편 문이다 — 브릿지가 있어도 상태 없는 화면을 그대로 본다.
+   공개 화면에는 이 문이 아예 없다(stateParam 이 DEBUG_ON 뒤에 있다).
+   진짜 상태를 읽어 오는 일은 이 페이지의 몫이 아니다 — 앱 어댑터(build_gw.py 의
+   stateFetch)가 채팅방 목록·매칭·받은 DM·받은 좋아요·행동 통계를 물어 불리언 셋으로
+   접은 뒤 window.SEPO_STATE 에 놓는다. 이 페이지는 그 셋만 읽는다.
 
    여기에 쿨다운이 한 겹 더 있다(stateCooldown) — 우선순위가 고른 답을 그대로 쓰지 않고,
    기기에 적힌 최근 이력(어제·그제)을 보고 같은 말을 사흘 연속 하지 않게 비켜 준다.
@@ -2936,13 +2941,8 @@ window.__sepoStateHist = function(){ return histRead(); };
       이 함수만 부르므로 이력에 손대지도, 이력에 흔들리지도 않는다. */
 function stateResolve(i){
   const flags = { unopened_match:false, unanswered_room:false, pending_like:false };
-  const b = window.SEPO_STATE;
-  if (b && typeof b === "object" && !Array.isArray(b)){
-    for (let k = 0; k < STATE_IDS.length; k++){
-      if (b[STATE_IDS[k]] === true) flags[STATE_IDS[k]] = true;
-    }
-    return { flags: flags, top: stateTopOf(flags), source: "bridge" };
-  }
+  /* ① 시뮬이 먼저다 — ?debug=1 로 연 화면에서만 열리는 문이고, 열려 있으면 브릿지를 덮는다.
+     테스터가 실기기에서 상태별 카피를 눈으로 확인하는 유일한 길이다. */
   const p = stateParam();
   if (p){
     const n = (typeof i === "number" && i >= 0) ? i : 0;
@@ -2960,6 +2960,14 @@ function stateResolve(i){
       }
     }
     return { flags: flags, top: stateTopOf(flags), source: "sim" };
+  }
+  /* ② 브릿지 — 앱 어댑터가 진짜 상태를 접어 놓은 자리다. 참인 것만 읽는다. */
+  const b = window.SEPO_STATE;
+  if (b && typeof b === "object" && !Array.isArray(b)){
+    for (let k = 0; k < STATE_IDS.length; k++){
+      if (b[STATE_IDS[k]] === true) flags[STATE_IDS[k]] = true;
+    }
+    return { flags: flags, top: stateTopOf(flags), source: "bridge" };
   }
   return { flags: flags, top: "none", source: "none" };
 }

@@ -1222,8 +1222,9 @@ const state = {
   quint:null,
   /* 이번 리딩의 첫 문장 틀 번호(0..5). 프롬프트를 처음 만들 때 한 번 고르고 그 뒤로 고정. */
   frame:null,
-  /* 이번 리딩의 상태 한 벌 { flags, top, source }. 프롬프트를 처음 만들 때(또는 배지를
-     찍을 때) 한 번 정하고 그 뒤로 고정 — 되살린 리딩은 하루 기록의 것을 그대로 쓴다. */
+  /* 이번 리딩의 상태 한 벌 { flags, top, source, top_raw, cd }. 프롬프트를 처음 만들 때
+     (또는 배지를 찍을 때) 한 번 정하고 그 뒤로 고정 — 되살린 리딩은 하루 기록의 것을
+     그대로 쓴다. top 은 쿨다운을 거친 오늘의 상태, top_raw 는 규칙이 없었다면 나왔을 답이다. */
   st:null,
   flying:false,
   storySel:"quint",
@@ -2322,7 +2323,7 @@ function readerSource(source, text){
     catch (e){ /* 어댑터가 넘어져도 리딩은 그대로 간다 */ }
   }
   debugSet(info.source + " \u00b7 " + DEBUG_PROMPT_VERSION +
-           " \u00b7 s:" + stateFor().top);
+           " \u00b7 s:" + stateBadge());
 }
 
 /* 표본 생성용 한 판 — 무작위 시드로 덱을 섞어 세 자리를 뽑는다.
@@ -2477,6 +2478,11 @@ function frameOpener(lang, quintName, idx){
      none   — 아무것도 없을 때. 지금까지의 화면과 한 글자도 다르지 않다.
    실제 배선(GET_CHAT_ROOMS · GET_USER_BEHAVIOR_STATS)은 아직이다 — 그 자리가 오면
    bridge 갈래만 채우면 되고 나머지는 그대로 쓴다.
+
+   여기에 쿨다운이 한 겹 더 있다(stateCooldown) — 우선순위가 고른 답을 그대로 쓰지 않고,
+   기기에 적힌 최근 이력(어제·그제)을 보고 같은 말을 사흘 연속 하지 않게 비켜 준다.
+   쿨다운은 화면의 리딩(stateFor)에만 걸린다. 표본 모드는 stateResolve 만 부르므로
+   이력을 읽지도 쓰지도 않는다.
    ⚠️ 이 블록은 build_gw.py 의 프롬프트 이식 구간(livePrompt 부터) **밖**에 있다.
       배포본 livePrompt 가 stateFor()/stateLabel()/promptGist() 를 그대로 부른다.
    ======================================================= */
@@ -2793,8 +2799,141 @@ function stateParam(){
   try { return String(new URL(window.location.href).searchParams.get("state") || "").trim(); }
   catch (e){ return ""; }
 }
+/* -------------------------------------------------------
+   상태 쿨다운(기기 저장) — "같은 말을 사흘 연속 듣지 않게".
+   고리가 여러 개 열려 있으면 같은 상태가 매일 나올 수 있다. 그러면 이 화면은
+   하루짜리 안내판이 아니라 같은 알림이 된다. 그래서 기기에 최근 7일치
+   { d:날짜, s:그날의 상태 } 를 적어 두고, 오늘 고를 때 어제·그제를 본다.
+
+   규칙은 둘이다.
+     ① 연속 2일까지만 — 어제도 그제도 같은 상태였다면 오늘은 그 상태를 건너뛴다.
+        (건너뛸 다른 후보가 없으면 "none" — 카드의 기본 행동으로 간다.)
+     ② 격일 교대 — 어제 쓴 상태가 오늘도 1순위라면, 어제 안 쓴 다른 후보를 먼저 준다.
+        후보끼리 똑같이 신선하면 원래 우선순위가 이긴다.
+   이력은 기기에만 있다(서버로 나가지 않는다). 시트 기록에는 고른 결과와
+   "쿨다운이 걸렸는가"만 남는다 — 이력 자체는 어디로도 보내지 않는다.
+   ------------------------------------------------------- */
+const HIST_PREFIX = "sepo_tarot_v3:state_hist:";   /* + userId — 하루 기록과 같은 이름 규칙 */
+const HIST_MAX = 7;                                /* 최근 7일치만 남긴다 */
+
+function histKey(){ return HIST_PREFIX + recUser(); }
+/* 최근 이력 — 오래된 것이 앞, 오늘이 뒤. 하루당 한 줄이다(같은 날이 둘이면 뒤가 이긴다). */
+function histRead(){
+  histSeedApply();   /* ?hist= 시드가 있으면 지금 유저 키에 먼저 심는다 */
+  try {
+    const a = JSON.parse(window.localStorage.getItem(histKey()) || "[]");
+    if (!Array.isArray(a)) return [];
+    const out = [];
+    for (let i = 0; i < a.length; i++){
+      const e = a[i];
+      if (!e || typeof e !== "object") continue;
+      if (typeof e.d !== "string" || !e.d || typeof e.s !== "string" || !e.s) continue;
+      for (let k = out.length - 1; k >= 0; k--) if (out[k].d === e.d) out.splice(k, 1);
+      out.push({ d: e.d, s: e.s });
+    }
+    return out.slice(-HIST_MAX);
+  } catch (e){ return []; }
+}
+function histWrite(list){
+  try { window.localStorage.setItem(histKey(), JSON.stringify(list)); }
+  catch (e){ /* 못 쓰면 쿨다운 기억이 없을 뿐, 오늘 판은 그대로 간다 */ }
+}
+/* 오늘 고른 상태를 이력에 남긴다 — 같은 날 다시 정하면 그 줄을 갈아 끼운다. */
+function histUse(dateKey, top){
+  const d = String(dateKey || "");
+  if (!d) return;
+  const list = histRead().filter(function(e){ return e.d !== d; });
+  list.push({ d: d, s: String(top || "none") });
+  while (list.length > HIST_MAX) list.shift();
+  histWrite(list);
+}
+/* 그날 쓴 상태(없으면 null). */
+function histAt(list, d){
+  for (let i = list.length - 1; i >= 0; i--) if (list[i].d === d) return list[i].s;
+  return null;
+}
+/* "YYYY-MM-DD" 에 며칠을 더한 날짜 키. 하루 경계는 이미 JST 로 잡혀 있으므로
+   여기서는 문자열 날짜끼리의 셈만 한다(시간대를 다시 섞지 않는다). */
+function dayKeyAdd(key, delta){
+  const t = Date.parse(String(key || "") + "T00:00:00Z");
+  if (!isFinite(t)) return "";
+  const d = new Date(t + delta * 86400000);
+  const p2 = function(n){ return (n < 10 ? "0" : "") + n; };
+  return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+}
+/* 오늘의 상태 한 벌에 쿨다운을 씌운다 — 들어온 것(우선순위 그대로)과
+   나가는 것(오늘 실제로 말할 상태)을 둘 다 남긴다.
+   raw 는 규칙이 없었다면 나왔을 답이고, cd 는 규칙이 걸렸는지다. */
+function stateCooldown(res, dateKey){
+  const raw = String((res && res.top) || "none");
+  const out = { flags: res.flags, top: raw, source: res.source, top_raw: raw, cd: "no" };
+  const cands = [];
+  for (let i = 0; i < STATE_IDS.length; i++){
+    if (res.flags && res.flags[STATE_IDS[i]] === true) cands.push(STATE_IDS[i]);
+  }
+  if (!cands.length) return out;                     /* 열린 고리가 없다 — 쿨다운도 없다 */
+  const hist = histRead();
+  const y1 = histAt(hist, dayKeyAdd(dateKey, -1));   /* 어제 */
+  const y2 = histAt(hist, dayKeyAdd(dateKey, -2));   /* 그제 */
+  const fresh = cands.filter(function(s){ return !(s === y1 && s === y2); });   /* ① 연속 2일 */
+  let pick;
+  if (!fresh.length) pick = "none";                  /* 다 쉬어야 한다 — 카드 기본 행동으로 */
+  else {
+    pick = fresh[0];
+    if (pick === y1){                                /* ② 격일 교대 */
+      const alt = fresh.filter(function(s){ return s !== y1; });
+      if (alt.length) pick = alt[0];
+    }
+  }
+  out.top = pick;
+  out.cd = (pick === raw) ? "no" : "applied";
+  return out;
+}
+/* 이력 시드(테스터 전용) — ?debug=1 뒤에서만 열리는 문이다.
+   ?hist=d-1:unopened_match,d-2:pending_like → "하루 전·이틀 전에 이 상태였다".
+   공개 화면에는 이 문이 없다(주소창이 남의 이력을 만들지 못한다).
+
+   ⚠️ 부트에서 바로 쓰지 않는다 — 앱 안에서는 유저 아이디가 브릿지(GET_APP_CONTEXT)로
+   한 틱 늦게 오고, 그 전에 쓰면 익명 키("local")에 심어 놓고 진짜 키를 읽게 된다.
+   그래서 파싱만 해 두었다가 이력을 **처음 읽는 순간** 그때의 키에 심는다. */
+let histSeed = null;     /* ?hist= 를 파싱해 둔 줄들(아직 아무 데도 안 심었다) */
+let histSeedAt = null;   /* 이미 심어 둔 키 — 같은 키에 두 번 심지 않는다 */
+function histSeedApply(){
+  if (!histSeed) return;
+  const k = histKey();
+  if (histSeedAt === k) return;
+  histSeedAt = k;
+  histWrite(histSeed);
+}
+function bootHist(){
+  if (!DEBUG_ON) return;
+  let q = "";
+  try { q = String(new URL(window.location.href).searchParams.get("hist") || "").trim(); }
+  catch (e){ q = ""; }
+  if (!q) return;
+  const today = jstKey(Date.now());
+  const rows = [];
+  const parts = q.split(",");
+  for (let i = 0; i < parts.length; i++){
+    const m = /^d-(\d+):(.+)$/.exec(parts[i].trim());
+    if (!m) continue;
+    const n = parseInt(m[1], 10);
+    const s = m[2].trim();
+    if (!(n >= 1 && n <= HIST_MAX)) continue;
+    if (s !== "none" && STATE_IDS.indexOf(s) === -1) continue;
+    rows.push({ n: n, d: dayKeyAdd(today, -n), s: s });
+  }
+  rows.sort(function(a, b){ return b.n - a.n; });     /* 오래된 것이 앞 */
+  histSeed = rows.slice(-HIST_MAX).map(function(r){ return { d: r.d, s: r.s }; });
+}
+/* 검증기가 읽는 창 하나 — 지금 기기에 적힌 이력 그대로다. */
+window.__sepoStateHist = function(){ return histRead(); };
+
 /* 상태 한 벌 = { flags, top, source }.
-   i 는 표본 인덱스다 — rr 는 i mod 4 로 돌고, rand 는 표본마다 새로 던진다. */
+   i 는 표본 인덱스다 — rr 는 i mod 4 로 돌고, rand 는 표본마다 새로 던진다.
+   ⚠️ 쿨다운은 여기 없다 — 이 함수는 "지금 열려 있는 고리"를 있는 그대로 읽는 자리고,
+      오늘 무엇을 말할지는 stateFor() 가 stateCooldown() 을 거쳐 정한다. 표본 모드는
+      이 함수만 부르므로 이력에 손대지도, 이력에 흔들리지도 않는다. */
 function stateResolve(i){
   const flags = { unopened_match:false, unanswered_room:false, pending_like:false };
   const b = window.SEPO_STATE;
@@ -2825,13 +2964,23 @@ function stateResolve(i){
   return { flags: flags, top: "none", source: "none" };
 }
 /* 이번 리딩의 상태 — 한 판에 한 번만 정하고, 그 뒤로는 이 판이 끝날 때까지 같다
-   (틀(frameFor)과 같은 자물쇠다). 하루 기록에도 남겨 되살린 리딩이 같은 말을 하게. */
+   (틀(frameFor)과 같은 자물쇠다). 하루 기록에도 남겨 되살린 리딩이 같은 말을 하게.
+   여는 순서가 곧 규칙이다: 열린 고리를 읽고(stateResolve) → 어제·그제를 보고 고른 뒤
+   (stateCooldown) → 오늘 고른 것을 기기 이력에 적는다(histUse). 되살린 리딩은
+   state.st 가 이미 있으므로 이 셋 중 어느 것도 다시 돌지 않는다. */
 function stateFor(){
   if (!state.st || typeof state.st !== "object"){
-    state.st = stateResolve();
+    const day = state.dateKey || jstKey(Date.now());
+    state.st = stateCooldown(stateResolve(), day);
+    histUse(day, state.st.top);
     recSetState(state.st);
   }
   return state.st;
+}
+/* 배지에 적을 상태 한 조각 — 쿨다운이 걸린 날은 (cd) 가 붙는다. */
+function stateBadge(){
+  const s = stateFor();
+  return String(s.top || "none") + (s.cd === "applied" ? "(cd)" : "");
 }
 
 /* 프롬프트 — 오늘 뽑힌 리딩 한 벌을 그대로 재료로 넘긴다.
@@ -3607,6 +3756,7 @@ window.addEventListener("resize", fitPhone);
 bootLang();    /* 언어 = 기기 설정(?lang=ko|ja 가 이긴다) */
 bootDebug();   /* ?debug=1 = 테스터 배지 — 그 밖에는 배지가 뜨지 않는다 */
 bootFresh();   /* ?fresh=1 = 오늘 기록 삭제 — 테스터 탈출구 */
+bootHist();    /* ?hist=d-1:... = 상태 이력 시드(디버그 전용) — 쿨다운을 눈으로 보려고 */
 bootInApp();   /* 앱 안(및 ?app=1)에서만 닫기 × 를 단다 */
 syncChrome();
 render();

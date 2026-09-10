@@ -132,6 +132,7 @@ a{color:var(--rose-ink)}
 .views::-webkit-scrollbar{display:none}
 .v{padding:calc(22px + env(safe-area-inset-top, 12px)) 24px calc(34px + max(var(--wippy-bottom-inset, 0px), env(safe-area-inset-bottom, 0px)));min-height:100%;display:flex;flex-direction:column;animation:rise .34s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
 
 /* ---- entry ----
    점술사 타로포 — 래스터(민무늬 세포) 1장 + 금박 라인 의상 2겹(뒤/앞).
@@ -626,7 +627,11 @@ a{color:var(--rose-ink)}
 @keyframes bzfade{from{opacity:1}to{opacity:0}}
 
 /* ---- story composer ---- */
-.v-story{gap:14px;align-items:center}
+/* 스토리 화면만 rise 대신 페이드다. rise 의 9px 시작점이 리딩에서 넘어올 때
+   "화면이 내려갔다 올라온다"로 읽혔다(2026-09-10 실기기 · 크롬/웹킷 트레이스 둘 다
+   정확히 9.00px · 0.34s). 카드 액자가 화면을 꽉 채우는 화면이라 그 9px 이 통째로
+   흔들린다. 다른 화면은 rise 그대로 — 최소한만 바꾼다. */
+.v-story{gap:14px;align-items:center;animation:fadein .24s ease both}
 .st-head{flex:none;display:flex;flex-direction:column;gap:5px;text-align:center}
 .st-title{font-family:var(--serif);font-weight:500;font-size:17px;color:var(--cream)}
 .st-sub{font-size:12px;line-height:1.6;color:rgba(255,201,219,.6)}
@@ -661,13 +666,6 @@ a{color:var(--rose-ink)}
 }
 .st-chip:hover{background:rgba(255,201,219,.1)}
 .st-chip.is-on{background:var(--rose);border-color:transparent;color:#fff}
-.st-cap{
-  width:100%;flex:none;border:1px solid rgba(217,169,75,.32);border-radius:12px;
-  background:rgba(255,201,219,.05);color:var(--cream);padding:11px 13px;
-  font-size:13.5px;line-height:1.65;resize:none;
-}
-.st-cap:focus{border-color:var(--rose);outline:none}
-.st-cap::placeholder{color:rgba(255,201,219,.4)}
 .st-posted{display:flex;flex-direction:column;align-items:center;gap:13px}
 .st-badge{
   font-family:var(--sans);font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--gilt);
@@ -1128,15 +1126,15 @@ const T = {
     close:"닫기",
     redraw:"다시 뽑기",
     storyTitle:"스토리 만들기",
-    storySub:"올릴 카드를 고르고, 한마디는 바꿔도 돼.",
+    storySub:"올릴 카드를 고르면 돼. 한마디는 타로포가 붙여 줄게.",
     storyPickAria:"올릴 카드 고르기",
     /* 스토리 그림 맨 위 한 줄 — quintLab 과 달리 ja 도 "카드"라고 부른다. */
     storyEyebrow:"오늘의 카드",
-    capLabel:"스토리 문구",
-    capPlaceholder:"한마디 남기기",
     post:"스토리에 올리기",
     back:"뒤로",
     posting:"올리는 중…",
+    /* 작성기에서 돌아온 뒤 올라갔는지 확인하는 동안 — posting 안의 마지막 구간이다. */
+    checking:"확인 중…",
     posted:"스토리에 올라갔어 (목업)",
     /* 진짜로 앱 스토리에 올라갔을 때 — 훅(SEPO_POST_STORY)이 있는 배포본만 쓴다. */
     postedReal:"스토리에 올라갔어",
@@ -1178,14 +1176,13 @@ const T = {
     close:"閉じる",
     redraw:"もういちど引く",
     storyTitle:"ストーリーをつくる",
-    storySub:"載せるカードを選んで、ひとことは変えていいよ。",
+    storySub:"のせるカードをえらんでね。ひとことはタロポがつけるよ。",
     storyPickAria:"載せるカードを選ぶ",
     storyEyebrow:"今日のカード",
-    capLabel:"ストーリーのひとこと",
-    capPlaceholder:"ひとこと残す",
     post:"ストーリーに載せる",
     back:"もどる",
     posting:"アップ中…",
+    checking:"確認中…",
     posted:"ストーリーに載せたよ（モックアップ）",
     postedReal:"ストーリーに載せたよ",
     postFailed:"ストーリーに載せられなかった。少しあとでもう一度",
@@ -1232,8 +1229,7 @@ const state = {
   st:null,
   flying:false,
   storySel:"quint",
-  caption:"",
-  capEdited:false,   /* 유저가 문구를 직접 수정했는가 — true면 칩 전환이 덮지 않는다 */
+  caption:"",   /* 그림에 구울 한마디 — 고른 카드의 story 줄이다(유저는 쓰지 않는다) */
   posted:false,
   /* 진짜로 앱 스토리에 올라갔는가(훅이 posted 를 돌려준 경우). 목업으로 올린 척한
      화면과 문구를 가른다 — 없는 기능을 있는 것처럼 말하지 않는다. */
@@ -1242,6 +1238,10 @@ const state = {
      아니므로 배포본의 표본 로깅이 이 판을 건너뛴다. */
   restored:false,
   posting:false,  /* 스토리 올리기가 앱에 넘어가 답을 기다리는 중 — 버튼을 잠근다 */
+  /* 그 기다림의 마지막 구간 — 작성기에서 돌아왔고 올라갔는지 확인하는 중이다.
+     어댑터의 SEPO_STORY_CHECKING 만 이걸 세우고, SEPO_STORY_DONE 이 반드시 내린다.
+     훅이 없는 목업에서는 아무도 부르지 않으므로 영영 false 다. */
+  checking:false,
   /* 이번 리딩에서 라이브로 쓰인 리더의 말 — 언어마다 따로 담는다.
      비어 있으면 사람이 쓴 문장 틀이 그 자리를 지킨다. */
   readerLive:{ ko:null, ja:null }
@@ -1857,27 +1857,6 @@ function unmountStoryCanvas(){
   const stage = document.getElementById("stStage");
   if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
 }
-/* ?debug=1 QA 미리보기의 한마디를 지금 값으로 맞춘다 — 미리보기는 render() 때 한 번
-   그려지므로 타이핑을 따라가지 않으면 "올라갈 그림"을 잘못 보여 준다.
-   상자가 없으면(유저 화면) 아무 일도 하지 않는다. */
-function syncStoryPreviewCap(){
-  const box = document.querySelector(".st-story-preview .st-story");
-  if (!box) return;
-  const txt = storyCapText();
-  let el = box.querySelector(".st-sy-cap");
-  if (!txt){
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-    box.classList.add("no-cap");
-    return;
-  }
-  box.classList.remove("no-cap");
-  if (!el){
-    el = document.createElement("p");
-    box.insertBefore(el, box.querySelector(".st-sy-mark"));
-  }
-  el.className = "st-sy-cap" + (state.lang === "ja" ? "" : " keep-all");
-  el.textContent = txt;
-}
 function viewStory(){
   if (state.posted){
     return '<div class="v v-story is-posted">' +
@@ -1907,12 +1886,10 @@ function viewStory(){
        유저 화면에는 이 상자가 아예 그려지지 않는다. */
     (DEBUG_ON ? '<div class="st-story-preview" aria-hidden="true">' + storyCanvasHTML() + '</div>' : '') +
     '<div class="st-chips" role="group" aria-label="' + esc(t().storyPickAria) + '">' + chips + '</div>' +
-    '<label class="sr-only" for="stCapIn">' + esc(t().capLabel) + '</label>' +
-    '<textarea id="stCapIn" class="st-cap" rows="2" maxlength="48" placeholder="' + esc(t().capPlaceholder) + '">' + esc(state.caption) + '</textarea>' +
     '<div class="rd-actions">' +
       '<button type="button" class="btn primary sm" data-act="post"' +
         (state.posting ? " disabled" : "") + '>' +
-        esc(state.posting ? t().posting : t().post) + '</button>' +
+        esc(state.posting ? (state.checking ? t().checking : t().posting) : t().post) + '</button>' +
       '<button type="button" class="btn ghost sm" data-go="reading">' + esc(t().back) + '</button>' +
     '</div>' +
   '</div>';
@@ -3395,12 +3372,10 @@ function render(){
      새 화면에 자리(.sepo3d)가 있으면 거기에 다시 붙인다. 자리마다 구도가 다르므로
      data-variant/data-orb 을 같이 넘긴다. 모듈이 아직이면 자리만 남겨 두고 모듈이 받아 간다. */
   if (window.Taropo3D) window.Taropo3D.unmount();
-  /* 화면이 바뀌는 순간을 적어 둔다(VIEW_SWAP_GUARD). 새로 칠한 화면에는 키보드 때문에
-     밀어 둔 것도 없다 — 그 장부도 여기서 비운다. */
+  /* 화면이 바뀌는 순간을 적어 둔다(VIEW_SWAP_GUARD) — 그 직후의 잔탭을 흘리는 자다. */
   if (state.view !== lastView){ lastView = state.view; viewSwapAt = Date.now(); }
-  kbForget();
   views.innerHTML = html;
-  views.scrollTop = 0;
+  views.scrollTop = 0;   /* 앞 화면을 굴려 놓았어도 새 화면은 맨 위에서 시작한다 */
   debugPaint();   /* 테스터 배지 — 화면을 다시 그려도 같은 문구가 남는다 */
   const holder3d = views.querySelector(".sepo3d");
   window.__taropo3dPending = holder3d;
@@ -3575,17 +3550,18 @@ function startDraw(){
 }
 function openStory(){
   state.storySel = "quint";
-  state.capEdited = false;
   state.caption = defaultCaption();
   state.posted = false;
   state.postedReal = false;
   state.posting = false;
+  state.checking = false;
   state.view = "story";
   render();
 }
 function setStorySel(sel){
   state.storySel = sel;
-  if (!state.capEdited) state.caption = defaultCaption();
+  /* 카드가 바뀌면 한마디도 그 카드의 것으로 — 유저가 쓰는 자리는 없다(2026-09-10). */
+  state.caption = defaultCaption();
   render();
   const el = views.querySelector('.st-chip[data-sel="' + sel + '"]');
   if (el) el.focus({ preventScroll: true });
@@ -3601,6 +3577,7 @@ function postStory(){
   const hook = window.SEPO_POST_STORY;
   if (typeof hook === "function"){
     state.posting = true;
+    state.checking = false;   /* 새 시도 = "확인 중" 은 아직이다 */
     render();   /* 버튼을 "올리는 중…" 으로 잠근다 */
     hook({
       storyEl: mountStoryCanvas(),
@@ -3626,10 +3603,16 @@ function postStory(){
    "unknown" = 작성기까지는 넘어갔는데 올라갔는지 확인하지 못했다(유저가 작성기를
    닫았을 수도 있다). 그럴 때는 올렸다고 말하지 않는다 — 버튼만 살리고 화면은 스토리
    그대로 두고, 마이페이지에서 확인해 달라고만 한다. 올림 완료 화면으로 가지 않는다. */
+window.SEPO_STORY_CHECKING = function(){
+  if (!state.posting || state.checking) return;   /* 한 판에 한 번만 — 재렌더도 한 번이다 */
+  state.checking = true;
+  render();   /* 잠금은 그대로, 문구만 "확인 중…" 으로 */
+};
 window.SEPO_STORY_DONE = function(result){
   unmountStoryCanvas();   /* 어댑터가 걷지 못했더라도 무대는 여기서 반드시 사라진다 */
   if (!state.posting) return;
   state.posting = false;
+  state.checking = false;   /* 어느 갈래로 끝나든 "확인 중…" 은 여기서 꺼진다 */
   if (result === "posted"){
     state.posted = true;
     state.postedReal = true;   /* 진짜로 올라갔다 — 화면 문구에서 (목업)이 빠진다 */
@@ -3726,7 +3709,6 @@ function openToday(){
   state.posted = false;
   state.postedReal = false;
   state.storySel = "quint";
-  state.capEdited = false;
   sealing = false;
   ARMED.reveal = true;
   ARMED.reading = true;
@@ -3831,120 +3813,6 @@ document.addEventListener("visibilitychange", function(){
   if (document.hidden) seqSkip();
 });
 
-views.addEventListener("input", function(e){
-  if (e.target && e.target.id === "stCapIn"){
-    state.caption = e.target.value;
-    state.capEdited = e.target.value.length > 0;
-    const cap = $("stCap");
-    if (cap) cap.textContent = state.caption;
-    syncStoryPreviewCap();   /* ?debug=1 미리보기의 그림 속 한마디도 같이 따라간다 */
-  }
-});
-
-/* =======================================================
-   KEYBOARD — 한마디 입력칸과 버튼이 키보드에 가리지 않게
-   폰 무대는 크기가 고정이다(데스크톱 400×844 를 #phoneScale 이 줄이고, 모바일에서는
-   100dvh 로 화면을 채운다). iOS 키보드가 올라와도 레이아웃 뷰포트는 그대로라 페이지가
-   스크롤되지 않고, 입력칸과 [올리기]/[뒤로]가 키보드 뒤로 통째로 숨는다(2026-09-10 실기기).
-   그래서 화면을 통째로 위로 민다 — .rd-actions 의 바닥이 키보드 위 KB_GAP 만큼 남도록.
-
-   미는 자리는 .v-story 가 아니라 #views 다. .v 의 rise 애니메이션이 fill:both 로
-   transform:none 을 붙들고 있어(애니메이션이 인라인 선언을 이긴다) .v 에 걸려면
-   !important 가 필요하고, 그러면 전환도 애니메이션과 다툰다. #views 는 애니메이션이
-   없고 #phoneScale(scale)과도 겹쳐 쓰기 때문에(중첩 변형은 그냥 합성된다) 싸울 일이 없다.
-   화면 밖 무대(#stStage)는 #app 아래라 이 변형에 딸려 가지 않는다 — 캡처 기하는 그대로다.
-
-   재는 자는 visualViewport 하나다. 앱이 쏘는 wippy:viewport-insets-changed 는
-   "키보드가 움직인다"는 신호일 뿐 높이를 알려 주지 않으므로(브릿지 스펙) 다시 재라는
-   뜻으로만 쓴다 — 키보드는 애니메이션으로 오르내리니 KB_SETTLE 뒤에 잰다.
-   visualViewport 가 없는 옛 웹뷰에서는 아무것도 밀지 않고 scrollIntoView 만 해 본다.
-   ======================================================= */
-const KB_MIN    = 80;    /* 이보다 낮으면 키보드가 아니다(주소창 접힘 등) */
-const KB_GAP    = 12;    /* 버튼 바닥과 키보드 사이에 남길 틈 */
-const KB_SETTLE = 300;   /* 키보드 애니메이션이 끝나기를 기다리는 시간 */
-const KB_BLUR   = 120;   /* 포커스가 빠진 뒤 내리기까지 — 이 창이 없으면 [올리기] 를 누르는
-                            손가락 아래에서 버튼이 도망간다(blur 가 click 보다 먼저 온다) */
-let kbShift = 0;   /* 지금 밀어 둔 양(px) — 0 이면 아무것도 밀리지 않은 상태다 */
-let kbBase  = 0;   /* 밀기 전에 재 둔 .rd-actions 바닥. 미는 동안 다시 재지 않는다
-                      (전환 중의 getBoundingClientRect 는 중간값을 준다) */
-let kbSim   = 0;   /* ?debug=1 이 흉내 낸 키보드 높이 — 0 이 아니면 진짜 측정은 쉰다 */
-
-/* 밀 수 있는 화면은 스토리 작성 화면 하나뿐이다. */
-function kbStory(){ return views.querySelector(".v-story"); }
-function kbSet(d){
-  if (d > 0){
-    views.style.transition = "transform .18s ease";
-    views.style.transform = "translateY(-" + d + "px)";
-  } else {
-    views.style.removeProperty("transform");
-    views.style.removeProperty("transition");
-    kbBase = 0;
-  }
-  kbShift = d;
-  return d;
-}
-/* 화면을 다시 그리면 밀어 둔 것은 뜻을 잃는다 — 걷고, 키보드가 아직이면 새 화면에서 다시 잰다. */
-function kbForget(){
-  if (!kbShift) return;
-  kbSet(0);
-  setTimeout(kbMeasure, 0);
-}
-/* 키보드 윗변(레이아웃 뷰포트 기준 y)을 받아 밀 양을 셈하고 적용한다. */
-function kbFit(kbTop){
-  const v = kbStory();
-  const acts = v && v.querySelector(".rd-actions");
-  if (!acts) return kbSet(0);
-  if (!kbShift) kbBase = acts.getBoundingClientRect().bottom;
-  return kbSet(Math.max(0, Math.round(kbBase + KB_GAP - kbTop)));
-}
-function kbMeasure(){
-  if (kbSim) return;
-  const vv = window.visualViewport;
-  if (!vv) return;
-  const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-  const el = document.activeElement;
-  if (kb > KB_MIN && el && el.id === "stCapIn" && kbStory()){
-    /* 스크롤이 되는 자리라면 브라우저에게 먼저 맡긴다 — 첫 판에만(밀고 나서 다시 스크롤하면
-       재 둔 바닥이 어긋난다). */
-    if (!kbShift){ try { el.scrollIntoView({ block: "nearest" }); } catch (err){ /* 옛 엔진 */ } }
-    kbFit(vv.height);
-  } else {
-    kbSet(0);
-  }
-}
-if (window.visualViewport){
-  window.visualViewport.addEventListener("resize", kbMeasure);
-  window.visualViewport.addEventListener("scroll", kbMeasure);
-}
-/* 앱이 인셋 변경을 쏜다 = 키보드가 오르내린다(bottom 0 이면 올라오는 중이다).
-   높이는 알려 주지 않으므로 다시 재라는 신호로만 쓴다. */
-window.addEventListener("wippy:viewport-insets-changed", function(){
-  setTimeout(kbMeasure, KB_SETTLE);
-});
-views.addEventListener("focusin", function(e){
-  if (!e.target || e.target.id !== "stCapIn") return;
-  /* visualViewport 가 없는 웹뷰의 유일한 안전망 — 스크롤이 되는 자리면 이것만으로 산다. */
-  try { e.target.scrollIntoView({ block: "nearest" }); } catch (err){ /* 옛 엔진 */ }
-  setTimeout(kbMeasure, KB_SETTLE);
-});
-views.addEventListener("focusout", function(e){
-  if (!e.target || e.target.id !== "stCapIn") return;
-  setTimeout(function(){
-    const el = document.activeElement;
-    if (el && el.id === "stCapIn") return;   /* 다시 잡혔으면 그대로 둔다 */
-    kbSet(0);
-  }, KB_BLUR);
-});
-/* 검증 전용 문 — ?debug=1 에서만 열린다. 헤드리스에는 키보드가 없으므로 높이를 흉내 내
-   위와 똑같은 셈을 돌린다(0 을 주면 밀어 둔 것을 걷는다). */
-window.__sepoKb = function(px){
-  if (!DEBUG_ON) return null;
-  const kb = Math.max(0, Number(px) || 0);
-  kbSim = (kb > KB_MIN) ? kb : 0;
-  if (kbSim) return kbFit(window.innerHeight - kbSim);
-  return kbSet(0);
-};
-
 window.addEventListener("keydown", function(e){
   if (state.view !== "browse") return;
   const tag = (e.target && e.target.tagName) || "";
@@ -3970,7 +3838,7 @@ document.querySelectorAll("[data-lang-btn]").forEach(function(b){
       x.setAttribute("aria-pressed", on ? "true" : "false");
     });
     syncChrome();
-    if (state.view === "story" && state.quint && !state.capEdited) state.caption = defaultCaption();
+    if (state.view === "story" && state.quint) state.caption = defaultCaption();   /* 언어가 바뀌면 한마디도 그 언어로 */
     render();
   });
 });

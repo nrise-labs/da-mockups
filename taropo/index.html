@@ -1141,6 +1141,9 @@ const T = {
     /* 진짜로 앱 스토리에 올라갔을 때 — 훅(SEPO_POST_STORY)이 있는 배포본만 쓴다. */
     postedReal:"스토리에 올라갔어",
     postFailed:"스토리에 올리지 못했어. 잠시 후 다시 해줘",
+    /* 작성기까지는 넘어갔는데 올라갔는지 확인하지 못했다 — 유저가 작성기를 닫았을
+       수도 있다. 올렸다고 말하지 않는다(2026-09-10 실기기: 취소했는데 "올라갔어"). */
+    postedUnknown:"올렸는지 확인하지 못했어. 마이페이지에서 확인해 줘",
     postedTitle:"스토리에 올라갔어",
     postedSub:"친구들이 오늘의 카드를 볼 수 있어. (목업)",
     /* 진짜로 올라갔을 때의 부제 — 훅(SEPO_POST_STORY)이 있는 배포본만 쓴다. */
@@ -1186,6 +1189,7 @@ const T = {
     posted:"ストーリーに載せたよ（モックアップ）",
     postedReal:"ストーリーに載せたよ",
     postFailed:"ストーリーに載せられなかった。少しあとでもう一度",
+    postedUnknown:"投稿できたか確認できなかったよ。マイページで確認してみて",
     postedTitle:"ストーリーに載せたよ",
     postedSub:"友だちが今日のカードを見られるよ。（モックアップ）",
     postedSubReal:"マイページのストーリーで見られるよ。",
@@ -1492,6 +1496,15 @@ function isGone(p){ return state.picked.indexOf(p) !== -1; }
    링 끝에서 반대편으로 감기는 셀 한 장만 transition 을 잠깐 끊는다. */
 let lastD = null;
 let bzSwallowClick = false;   /* 스와이프·탭이 처리한 제스처 뒤 따라온 click 1회 삼킴(중앙 버튼 이중 트리거 방지) */
+/* 화면이 바뀐 시각 — 리딩의 [스토리에 올리기]와 스토리의 [올리기]는 같은 자리에 그려진다.
+   render() 가 innerHTML 을 한 번에 갈아 끼우므로, 연타의 두 번째 탭이 갓 칠한 [올리기]에
+   그대로 떨어져 작성 화면을 건너뛰고 올라가 버렸다. 화면이 바뀐 뒤 이 창(ms) 안에 오는
+   .rd-actions 버튼 탭은 앞 화면을 향한 잔탭으로 보고 흘린다 — bzSwallowClick 과 같은 결이다.
+   버튼을 눈에 보이게 잠그지는 않는다. 창은 500ms — 무작위 탐색이 잡아 낸 연타 간격
+   40~480ms 를 모두 덮으면서, 사람이 새 화면을 읽고 누르는 첫 탭(늘 그보다 늦다)은 통과한다. */
+const VIEW_SWAP_GUARD = 500;
+let lastView = null;
+let viewSwapAt = 0;
 
 /* -------------------------------------------------------
    ① 스와이프 큐 — 뽑기 화면에 있는 동안 계속 서 있는다(마크업은 viewBrowse 가 낸다).
@@ -3382,6 +3395,10 @@ function render(){
      새 화면에 자리(.sepo3d)가 있으면 거기에 다시 붙인다. 자리마다 구도가 다르므로
      data-variant/data-orb 을 같이 넘긴다. 모듈이 아직이면 자리만 남겨 두고 모듈이 받아 간다. */
   if (window.Taropo3D) window.Taropo3D.unmount();
+  /* 화면이 바뀌는 순간을 적어 둔다(VIEW_SWAP_GUARD). 새로 칠한 화면에는 키보드 때문에
+     밀어 둔 것도 없다 — 그 장부도 여기서 비운다. */
+  if (state.view !== lastView){ lastView = state.view; viewSwapAt = Date.now(); }
+  kbForget();
   views.innerHTML = html;
   views.scrollTop = 0;
   debugPaint();   /* 테스터 배지 — 화면을 다시 그려도 같은 문구가 남는다 */
@@ -3490,6 +3507,16 @@ function render(){
 
 }
 
+/* 앱 어댑터가 **늦게** 도착한 앱 컨텍스트(유저 아이디)를 반영할 때 두드리는 문.
+   첫 화면일 때만 다시 그린다 — 그래야 하루 기록 CTA 가 그 유저의 것으로 바뀐다.
+   다른 화면에서는 아무것도 하지 않는다(진행 중인 연출을 끊지 않는다). 훅이므로
+   ?debug=1 과 무관하게 늘 서 있고, 브릿지가 없으면 부르는 사람이 없다. */
+window.SEPO_RERENDER = function(){
+  if (state.view !== "entry") return false;
+  render();
+  return true;
+};
+
 function syncChrome(){
   $("phone").setAttribute("lang", state.lang);
   app.setAttribute("data-lang", state.lang);
@@ -3593,8 +3620,12 @@ function postStory(){
   render();
   toast(t().posted);
 }
-/* 어댑터가 결과를 돌려주는 문 — "posted" | "failed". 그 밖의 값은 실패로 본다.
-   기다리는 중이 아니면(화면을 떠났다) 늦게 온 답은 버린다. */
+/* 어댑터가 결과를 돌려주는 문 — "posted" | "unknown" | "failed". 그 밖의 값은 실패로 본다.
+   기다리는 중이 아니면(화면을 떠났다) 늦게 온 답은 버린다.
+
+   "unknown" = 작성기까지는 넘어갔는데 올라갔는지 확인하지 못했다(유저가 작성기를
+   닫았을 수도 있다). 그럴 때는 올렸다고 말하지 않는다 — 버튼만 살리고 화면은 스토리
+   그대로 두고, 마이페이지에서 확인해 달라고만 한다. 올림 완료 화면으로 가지 않는다. */
 window.SEPO_STORY_DONE = function(result){
   unmountStoryCanvas();   /* 어댑터가 걷지 못했더라도 무대는 여기서 반드시 사라진다 */
   if (!state.posting) return;
@@ -3607,7 +3638,7 @@ window.SEPO_STORY_DONE = function(result){
     return;
   }
   render();   /* 버튼을 다시 살린다 — 화면은 스토리 그대로다 */
-  toast(t().postFailed);
+  toast(result === "unknown" ? t().postedUnknown : t().postFailed);
 };
 function go(to){
   if (to === "story") openStory();
@@ -3770,6 +3801,11 @@ function bootFresh(){
 views.addEventListener("click", function(e){
   /* 스와이프/탭이 이미 처리한 제스처 뒤에 따라온 click 은 삼킨다(중앙 선택 이중 트리거 방지). */
   if (bzSwallowClick){ bzSwallowClick = false; return; }
+  /* 화면이 막 바뀌었으면 .rd-actions 의 버튼 탭은 앞 화면을 향한 잔탭이다 — 흘린다.
+     리딩 [스토리에 올리기]와 스토리 [올리기]는 좌표가 같아, 연타의 두 번째 탭이
+     작성 화면을 건너뛰고 그대로 올려 버렸다(2026-09-10 무작위 탐색 F1). */
+  if (e.target.closest(".rd-actions button") &&
+      (Date.now() - viewSwapAt) < VIEW_SWAP_GUARD) return;
   /* 셰브론 탭 = 스와이프와 같은 한 걸음. 중앙 선택보다 먼저 가로챈다. */
   const cueBtn = e.target.closest(".bz-cue-btn");
   if (cueBtn){ slideBy(cueBtn.getAttribute("data-cue") === "r" ? 1 : -1); return; }
@@ -3804,6 +3840,110 @@ views.addEventListener("input", function(e){
     syncStoryPreviewCap();   /* ?debug=1 미리보기의 그림 속 한마디도 같이 따라간다 */
   }
 });
+
+/* =======================================================
+   KEYBOARD — 한마디 입력칸과 버튼이 키보드에 가리지 않게
+   폰 무대는 크기가 고정이다(데스크톱 400×844 를 #phoneScale 이 줄이고, 모바일에서는
+   100dvh 로 화면을 채운다). iOS 키보드가 올라와도 레이아웃 뷰포트는 그대로라 페이지가
+   스크롤되지 않고, 입력칸과 [올리기]/[뒤로]가 키보드 뒤로 통째로 숨는다(2026-09-10 실기기).
+   그래서 화면을 통째로 위로 민다 — .rd-actions 의 바닥이 키보드 위 KB_GAP 만큼 남도록.
+
+   미는 자리는 .v-story 가 아니라 #views 다. .v 의 rise 애니메이션이 fill:both 로
+   transform:none 을 붙들고 있어(애니메이션이 인라인 선언을 이긴다) .v 에 걸려면
+   !important 가 필요하고, 그러면 전환도 애니메이션과 다툰다. #views 는 애니메이션이
+   없고 #phoneScale(scale)과도 겹쳐 쓰기 때문에(중첩 변형은 그냥 합성된다) 싸울 일이 없다.
+   화면 밖 무대(#stStage)는 #app 아래라 이 변형에 딸려 가지 않는다 — 캡처 기하는 그대로다.
+
+   재는 자는 visualViewport 하나다. 앱이 쏘는 wippy:viewport-insets-changed 는
+   "키보드가 움직인다"는 신호일 뿐 높이를 알려 주지 않으므로(브릿지 스펙) 다시 재라는
+   뜻으로만 쓴다 — 키보드는 애니메이션으로 오르내리니 KB_SETTLE 뒤에 잰다.
+   visualViewport 가 없는 옛 웹뷰에서는 아무것도 밀지 않고 scrollIntoView 만 해 본다.
+   ======================================================= */
+const KB_MIN    = 80;    /* 이보다 낮으면 키보드가 아니다(주소창 접힘 등) */
+const KB_GAP    = 12;    /* 버튼 바닥과 키보드 사이에 남길 틈 */
+const KB_SETTLE = 300;   /* 키보드 애니메이션이 끝나기를 기다리는 시간 */
+const KB_BLUR   = 120;   /* 포커스가 빠진 뒤 내리기까지 — 이 창이 없으면 [올리기] 를 누르는
+                            손가락 아래에서 버튼이 도망간다(blur 가 click 보다 먼저 온다) */
+let kbShift = 0;   /* 지금 밀어 둔 양(px) — 0 이면 아무것도 밀리지 않은 상태다 */
+let kbBase  = 0;   /* 밀기 전에 재 둔 .rd-actions 바닥. 미는 동안 다시 재지 않는다
+                      (전환 중의 getBoundingClientRect 는 중간값을 준다) */
+let kbSim   = 0;   /* ?debug=1 이 흉내 낸 키보드 높이 — 0 이 아니면 진짜 측정은 쉰다 */
+
+/* 밀 수 있는 화면은 스토리 작성 화면 하나뿐이다. */
+function kbStory(){ return views.querySelector(".v-story"); }
+function kbSet(d){
+  if (d > 0){
+    views.style.transition = "transform .18s ease";
+    views.style.transform = "translateY(-" + d + "px)";
+  } else {
+    views.style.removeProperty("transform");
+    views.style.removeProperty("transition");
+    kbBase = 0;
+  }
+  kbShift = d;
+  return d;
+}
+/* 화면을 다시 그리면 밀어 둔 것은 뜻을 잃는다 — 걷고, 키보드가 아직이면 새 화면에서 다시 잰다. */
+function kbForget(){
+  if (!kbShift) return;
+  kbSet(0);
+  setTimeout(kbMeasure, 0);
+}
+/* 키보드 윗변(레이아웃 뷰포트 기준 y)을 받아 밀 양을 셈하고 적용한다. */
+function kbFit(kbTop){
+  const v = kbStory();
+  const acts = v && v.querySelector(".rd-actions");
+  if (!acts) return kbSet(0);
+  if (!kbShift) kbBase = acts.getBoundingClientRect().bottom;
+  return kbSet(Math.max(0, Math.round(kbBase + KB_GAP - kbTop)));
+}
+function kbMeasure(){
+  if (kbSim) return;
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  const el = document.activeElement;
+  if (kb > KB_MIN && el && el.id === "stCapIn" && kbStory()){
+    /* 스크롤이 되는 자리라면 브라우저에게 먼저 맡긴다 — 첫 판에만(밀고 나서 다시 스크롤하면
+       재 둔 바닥이 어긋난다). */
+    if (!kbShift){ try { el.scrollIntoView({ block: "nearest" }); } catch (err){ /* 옛 엔진 */ } }
+    kbFit(vv.height);
+  } else {
+    kbSet(0);
+  }
+}
+if (window.visualViewport){
+  window.visualViewport.addEventListener("resize", kbMeasure);
+  window.visualViewport.addEventListener("scroll", kbMeasure);
+}
+/* 앱이 인셋 변경을 쏜다 = 키보드가 오르내린다(bottom 0 이면 올라오는 중이다).
+   높이는 알려 주지 않으므로 다시 재라는 신호로만 쓴다. */
+window.addEventListener("wippy:viewport-insets-changed", function(){
+  setTimeout(kbMeasure, KB_SETTLE);
+});
+views.addEventListener("focusin", function(e){
+  if (!e.target || e.target.id !== "stCapIn") return;
+  /* visualViewport 가 없는 웹뷰의 유일한 안전망 — 스크롤이 되는 자리면 이것만으로 산다. */
+  try { e.target.scrollIntoView({ block: "nearest" }); } catch (err){ /* 옛 엔진 */ }
+  setTimeout(kbMeasure, KB_SETTLE);
+});
+views.addEventListener("focusout", function(e){
+  if (!e.target || e.target.id !== "stCapIn") return;
+  setTimeout(function(){
+    const el = document.activeElement;
+    if (el && el.id === "stCapIn") return;   /* 다시 잡혔으면 그대로 둔다 */
+    kbSet(0);
+  }, KB_BLUR);
+});
+/* 검증 전용 문 — ?debug=1 에서만 열린다. 헤드리스에는 키보드가 없으므로 높이를 흉내 내
+   위와 똑같은 셈을 돌린다(0 을 주면 밀어 둔 것을 걷는다). */
+window.__sepoKb = function(px){
+  if (!DEBUG_ON) return null;
+  const kb = Math.max(0, Number(px) || 0);
+  kbSim = (kb > KB_MIN) ? kb : 0;
+  if (kbSim) return kbFit(window.innerHeight - kbSim);
+  return kbSet(0);
+};
 
 window.addEventListener("keydown", function(e){
   if (state.view !== "browse") return;

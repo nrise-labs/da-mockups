@@ -259,9 +259,9 @@ a{color:var(--rose-ink)}
 }
 /* 빈자리를 메우는 재배치 — 비행과 같은 곡선, 같은 길이로 조용히 흐른다. */
 .bz-track.is-refill .bz-cell{transition-duration:780ms, 380ms}
-/* 튕겨 넘기는 동안(flowRun) — 한 걸음을 짧게 잡아 여러 장이 끊기지 않고 이어 흐른다.
-   is-refill 뒤에 둔다: 둘이 함께 걸리는 드문 순간에도 흐름 쪽이 이긴다. */
-.bz-track.is-flow .bz-cell{transition-duration:150ms}
+/* 손가락이 닿아 있는 동안 — 부채는 곡선 없이 손을 그대로 따라간다(1:1).
+   is-refill 뒤에 둔다: 둘이 함께 걸리는 드문 순간에도 손가락 쪽이 이긴다. */
+.bz-track.is-drag .bz-cell{transition:none}
 .bz-cell .cardback{width:100%;height:100%;border-radius:12px}
 .bz-cell .cardback .sigil{width:46px;height:46px}
 .bz-cell.is-focus .cardback{animation:sway 5.4s ease-in-out infinite}
@@ -1546,8 +1546,27 @@ function cueVanish(){
   if (c) c.classList.add("is-hidden");
 }
 
-/* soft = 빈자리 메우기. 한 칸 넘는 이동이라도 끊지 않고 같은 곡선으로 흘려보낸다. */
-function layoutCarousel(soft){
+/* 한 칸의 가로 폭. 레이아웃과 손짓이 같은 자를 쓴다 —
+   "손가락이 62px 갔다" 와 "부채가 한 장 갔다" 가 같은 말이어야 1:1 로 붙는다. */
+const CELL_STEP = 62;
+/* 이웃 칸의 밝기 사다리. 정수 자리에서는 예전 값 그대로고,
+   그 사이는 직선으로 잇는다 — 손가락을 따라 흐를 때 밝기가 계단으로 튀지 않는다. */
+const OP_LADDER = [1, 0.82, 0.46, 0.15, 0];
+function cellOp(ad){
+  if (ad >= 4) return 0;
+  const i = Math.floor(ad), f = ad - i;
+  return f === 0 ? OP_LADDER[i] : OP_LADDER[i] + (OP_LADDER[i + 1] - OP_LADDER[i]) * f;
+}
+/* 초점에서 ad 칸 떨어진 카드가 앉는 높이. 예전에는 초점만 -8 이고 나머지는 13·26·39…
+   였다 — 0 과 1 사이에 21px 짜리 **계단**이 하나 있었다는 뜻이다. 그 구간만 직선으로
+   이어 붙인다(-8 → 13). 1 칸 밖은 예전 그대로 13px 씩 곧게 뻗는다. */
+function cellY(ad){
+  return ad <= 1 ? (-8 + ad * 21) : (ad * 13);
+}
+/* soft = 빈자리 메우기. 한 칸 넘는 이동이라도 끊지 않고 같은 곡선으로 흘려보낸다.
+   frac = 손가락이 밀어낸 실수 칸 수(오른쪽으로 미는 손이 음수). 0 이면 예전과 한 글자도
+   다르지 않은 그림이 나온다 — 정지 상태의 부채는 이 변경 전후로 똑같다. */
+function layoutCarousel(soft, frac){
   const track = $("bzTrack");
   if (!track) return;
   const cells = track.children;
@@ -1570,20 +1589,22 @@ function layoutCarousel(soft){
       delete lastD[i];
       continue;
     }
-    const d = ((rank[i] - rf + halfL + L) % L) - halfL;
+    const base = ((rank[i] - rf + halfL + L) % L) - halfL;
+    const d = base - (frac || 0);
     const ad = Math.abs(d);
+    const nd = Math.round(ad);   /* 겹침 순서와 초점은 **가장 가까운 정수 칸**이 정한다 */
     const sc = Math.max(0.5, 1 - ad * 0.12);
-    const y = ad === 0 ? -8 : ad * 13;
-    const op = ad === 0 ? 1 : (ad === 1 ? 0.82 : (ad === 2 ? 0.46 : (ad === 3 ? 0.15 : 0)));
-    const tf = "translate(" + (d * 62) + "px," + y + "px) rotate(" + (d * 7) + "deg) scale(" + sc + ")";
+    const y = cellY(ad);
+    const op = cellOp(ad);
+    const tf = "translate(" + (d * CELL_STEP) + "px," + y + "px) rotate(" + (d * 7) + "deg) scale(" + sc + ")";
     const prev = (i in lastD) ? lastD[i] : null;
     /* 링 솔기를 넘는 칸은 앞뒤 모두 opacity 0 이라, 끊지 않아도 그 이동은 보이지 않는다. */
     const jump = (prev === null) || (!soft && Math.abs(d - prev) > 1);
     if (jump) c.style.transition = "none";
     c.style.transform = tf;
     c.style.opacity = String(op);
-    c.style.zIndex = String(20 - ad);
-    c.classList.toggle("is-focus", ad === 0);
+    c.style.zIndex = String(Math.max(0, 20 - nd));
+    c.classList.toggle("is-focus", nd === 0);
     if (jump){ void c.offsetWidth; c.style.transition = ""; }
     lastD[i] = d;
   }
@@ -1601,55 +1622,15 @@ function stepFocus(from, step){
   }
   return ring[((at + step) % ring.length + ring.length) % ring.length];
 }
-function slideBy(dir){
+/* soft = 손가락이 놓아 준 자리에서 목적지까지 한 곡선으로 흘려보낸다(드래그 정착).
+   셰브론·키보드는 예전처럼 딱딱한 한 걸음이다. */
+function slideBy(dir, soft){
   if (state.view !== "browse" || state.flying || sealing) return;
   cueSettle();   /* 한 장이라도 넘겼으면 큐는 할 말을 했다 — 조용한 상태로 남는다 */
   state.focus = stepFocus(state.focus, dir);
-  layoutCarousel();
+  layoutCarousel(!!soft);
 }
 
-/* -------------------------------------------------------
-   플릭 관성 — 튕기면 여러 장이 감속하며 지나간다.
-   한 장씩 딱 끊어 넘기는 부채는 손을 떼는 순간 이미 멈춰 있다. 빠르게 튕겼을 때만
-   여러 걸음을 잇되, 걸음 사이를 55ms 에서 190ms 로 벌려 스스로 잦아들게 한다.
-   걸음은 전부 slideBy 위에서 돈다 — 소진된 자리를 건너뛰는 링 규칙이 그대로 적용되고,
-   어느 순간에 멈춰도 덱은 늘 한 장 위에 서 있다(중간에서 끊기지 않는다).
-   타이머는 여기 한 곳에만 있고 출구도 하나다(flowCancel) — 새 포인터·셰브론·선택·
-   화면 전환이 전부 그 문으로 들어온다. 모션 최소화에서는 아예 달리지 않는다(한 장).
-   ------------------------------------------------------- */
-const FLOW_MAX = 6;         /* 한 번의 플릭이 넘길 수 있는 최대 장수 */
-const FLOW_V_UNIT = 0.28;   /* 이 속도(px/ms)마다 한 장 — 0.28 이면 1장, 1.68 이상이면 6장 */
-const FLOW_GAP_MIN = 55;    /* 첫 걸음 간격 */
-const FLOW_GAP_SPAN = 135;  /* 마지막 걸음까지 벌어지는 폭 — 55 → 190ms */
-let flowTimers = [];
-function flowCancel(){
-  for (let i = 0; i < flowTimers.length; i++) clearTimeout(flowTimers[i]);
-  flowTimers = [];
-  const trk = $("bzTrack");
-  if (trk) trk.classList.remove("is-flow");
-}
-/* 속도 → 장수. 느리게 끌어 놓은 손(작은 vx)은 언제나 한 장이다. */
-function flowSteps(vx){
-  if (REDUCED.matches) return 1;
-  const n = Math.round(Math.abs(vx) / FLOW_V_UNIT);
-  return n < 1 ? 1 : (n > FLOW_MAX ? FLOW_MAX : n);
-}
-function flowRun(dir, n){
-  flowCancel();
-  slideBy(dir);            /* 첫 장은 손을 떼는 바로 그 순간 — 응답은 기다리지 않는다 */
-  if (n <= 1) return;
-  const trk = $("bzTrack");
-  if (trk) trk.classList.add("is-flow");
-  let at = 0;
-  for (let i = 1; i < n; i++){
-    const last = (i === n - 1);
-    at += FLOW_GAP_MIN + (i / n) * FLOW_GAP_SPAN;
-    flowTimers.push(setTimeout(function(){
-      slideBy(dir);
-      if (last) flowCancel();   /* 마지막 걸음에서 흐름 표시를 걷는다 */
-    }, at));
-  }
-}
 function offsetIn(el, root){
   let x = 0, y = 0, n = el;
   while (n && n !== root){ x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
@@ -1695,7 +1676,6 @@ function flyToSlot(slotIdx, done){
   ]);
 }
 function pickCard(){
-  flowCancel();   /* 고르는 순간 관성은 선다 — 날아가는 카드와 흐르는 부채를 겹치지 않는다 */
   if (state.view !== "browse" || state.flying || sealing) return;
   if (state.picked.length >= 3) return;
   if (isGone(state.focus)) return;   /* 이미 소진된 자리 — 다시 고를 수 없다 */
@@ -3431,7 +3411,6 @@ function readingSeq(){
 function render(){
   stopTyping();
   seqCancel();   /* 지난 화면의 연출은 여기서 끝난다 — 유령 타이머 금지 */
-  flowCancel();  /* 부채의 관성도 같은 문으로 나간다 — 브라우즈를 떠나면 타이머는 없다 */
   liveAbort();   /* 진행 중이던 라이브 생성도 함께 — 다시 뽑기·뷰 전환·언어 토글의 공통 출구 */
   let html = "";
   if (state.view === "entry") html = viewEntry();
@@ -3472,28 +3451,47 @@ function render(){
       pick.addEventListener("blur", off);
     }
     /* 스와이프/드래그 네비 — 포인터 통일(터치·마우스·펜). 가로 우세 제스처만 캡처해
-       트랙을 손가락 따라 옮기고(FOLLOW .9 = 거의 손가락에 붙는다), 손을 떼면 임계
-       (24px 또는 플릭 0.25px/ms)에서 넘긴다. 천천히 끌면 한 장, 튕기면 속도만큼
-       여러 장이 감속하며 지나간다(flowRun). 세로 우세는 흘려 페이지 스크롤에 양보.
+       **부채 자체**를 손가락에 1:1 로 붙인다. 트랙을 통째로 밀던 고무줄도, 손을 뗀 뒤
+       속도만큼 여러 걸음을 잇던 관성도 없다 — 기기에서 그 걸음들은 흐름이 아니라
+       떨림으로 읽혔다.
+
+       손가락이 민 거리가 곧 넘어갈 장수다. 한 장 = CELL_STEP(62px, 레이아웃이 쓰는
+       바로 그 자) 이므로 frac = -dx / CELL_STEP 이 "지금 몇 장쯤 밀렸나" 다. 그리는
+       동안은 셀의 전이를 끄고(is-drag) 프레임당 한 번만 다시 그린다(rAF 스로틀).
+       손을 떼면 frac 을 반올림해 **한 번에** 그만큼 이동하고, 전이를 되살려 손가락이
+       놓아 준 자리에서 목적지까지 320ms 곡선 하나로 앉힌다(중간 정거장 없음).
+       빠른 튕김에는 VEL_BIAS 만큼의 덤을 얹는다 — 거리가 조금 모자라도 손의 기세는
+       읽어 준다. 세로 우세는 흘려 페이지 스크롤에 양보.
        탭(이동<8px·<250ms)=중앙 카드 선택.
        판정 문턱은 4px 다 — 6px 은 스와이프가 "안 먹는" 첫 인상을 만들었다. 대신 그
        문턱을 내리면 손이 조금 흔들린 탭도 제스처로 판정되므로, 가로로 판정됐어도
        실제로는 탭이었던 손짓(총 이동<8px·<250ms)은 그 자리에서 선택으로 돌려준다.
-       같은 이유로 플릭 판정에도 최소 이동(TAP_MOVE)을 요구한다 — 제자리 흔들림은
-       아무리 빨라도 넘김이 아니다. */
+       모션 최소화에서는 끄는 동안 아무것도 움직이지 않고, 손을 뗀 자리에서 곧장
+       반올림한 만큼 건너뛴다(전이는 CSS 가 이미 꺼 두었다). */
     if (stage){
       const track = $("bzTrack");
-      const TAP_MOVE = 8, TAP_TIME = 250, COMMIT_PX = 24, FLICK_V = 0.25, FOLLOW = 0.9, FOLLOW_MAX = 110;
+      const TAP_MOVE = 8, TAP_TIME = 250;
       const DECIDE_PX = 4;
+      /* 튕김 덤 — 1px/ms 마다 약 1.45장. 90px(한 장 반쯤)을 기준으로 잡았다. */
+      const VEL_BIAS = 90 / CELL_STEP;
       let sx = 0, sy = 0, st = 0, pid = -1, decided = false, horiz = false, lx = 0, lt = 0, vx = 0;
-      const clampF = function(v){ return v < -FOLLOW_MAX ? -FOLLOW_MAX : (v > FOLLOW_MAX ? FOLLOW_MAX : v); };
+      let frac = 0, raf = 0;
+      /* 끄는 동안에도 링 솔기는 넘지 않는다 — 반 장 앞에서 멈춘다. */
+      const fracMax = function(){ return Math.max(0.5, liveRing().length / 2 - 0.5); };
+      /* 한 번에 갈 수 있는 최대 장수 — 솔기를 넘지 않는 정수. */
+      const stepMax = function(){ return Math.max(1, Math.floor(liveRing().length / 2 - 1)); };
+      const clampTo = function(v, m){ return v < -m ? -m : (v > m ? m : v); };
+      const paint = function(){ raf = 0; layoutCarousel(true, frac); };
+      const dragEnd = function(){
+        if (raf){ cancelAnimationFrame(raf); raf = 0; }
+        if (track) track.classList.remove("is-drag");
+      };
       stage.addEventListener("pointerdown", function(e){
-        flowCancel();   /* 새 손가락이 닿으면 흐르던 관성은 그 자리에 선다(셰브론 탭도 같다) */
         /* 셰브론은 제 몫의 탭을 가진다 — 스와이프·중앙 선택 판정에서 아예 빼 둔다. */
         if (e.target.closest && e.target.closest(".bz-cue-btn")){ pid = -1; return; }
         if (state.flying || sealing) return;
         pid = e.pointerId; sx = e.clientX; sy = e.clientY; st = e.timeStamp;
-        lx = sx; lt = st; vx = 0; decided = false; horiz = false; bzSwallowClick = false;
+        lx = sx; lt = st; vx = 0; frac = 0; decided = false; horiz = false; bzSwallowClick = false;
       });
       stage.addEventListener("pointermove", function(e){
         if (e.pointerId !== pid) return;
@@ -3503,43 +3501,56 @@ function render(){
           decided = true; horiz = Math.abs(dx) > Math.abs(dy);
           if (horiz){
             try { stage.setPointerCapture(pid); } catch (_e){}
-            if (track && !REDUCED.matches) track.style.transition = "none";
+            if (track && !REDUCED.matches) track.classList.add("is-drag");
           }
         }
         if (!horiz) return;
         e.preventDefault();
         const now = e.timeStamp;
         if (now > lt){ vx = (e.clientX - lx) / (now - lt); lx = e.clientX; lt = now; }
-        if (track && !REDUCED.matches) track.style.transform = "translateX(" + clampF(dx * FOLLOW) + "px)";
+        frac = clampTo(-dx / CELL_STEP, fracMax());
+        /* 프레임당 한 번 — 손가락은 프레임보다 자주 움직이지만 그림은 한 번이면 된다. */
+        if (!REDUCED.matches && !raf) raf = requestAnimationFrame(paint);
       });
       const endSwipe = function(e){
         if (e.pointerId !== pid) return;
         try { if (stage.hasPointerCapture(pid)) stage.releasePointerCapture(pid); } catch (_e){}
         const dx = e.clientX - sx, dy = e.clientY - sy, dt = e.timeStamp - st;
         const wasHoriz = decided && horiz; pid = -1;
-        if (track){
-          track.style.transition = (wasHoriz && !REDUCED.matches) ? "transform 200ms cubic-bezier(.22,.61,.36,1)" : "none";
-          track.style.transform = "";
-        }
-        if (wasHoriz){
-          bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
-          const flick = Math.abs(vx) > FLICK_V && Math.abs(dx) > TAP_MOVE;
-          if (Math.abs(dx) > COMMIT_PX || flick){
-            flowRun(dx < 0 ? 1 : -1, flowSteps(vx));
-            cueVanish();   /* 손짓으로 넘겼다 — 셰브론은 여기서 걷힌다 */
-          } else if (Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && dt < TAP_TIME){
-            pickCard();    /* 흔들렸을 뿐 제자리였다 — 탭으로 돌려준다 */
+        if (!wasHoriz){
+          dragEnd();
+          if (!decided && Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && dt < TAP_TIME){
+            bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
+            pickCard();
           }
-        } else if (!decided && Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && dt < TAP_TIME){
-          bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
-          pickCard();
+          return;
         }
+        bzSwallowClick = true; setTimeout(function(){ bzSwallowClick = false; }, 350);
+        if (Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && dt < TAP_TIME){
+          dragEnd();
+          layoutCarousel(true);   /* 흔들렸을 뿐 제자리였다 — 부채를 되돌리고 탭으로 준다 */
+          pickCard();
+          return;
+        }
+        /* 손가락이 마지막으로 있던 자리를 **확정**한 뒤(대기 중이던 프레임까지 반영),
+           전이를 되살리고 한 번 밀어 준다 — 그래야 곡선이 그 자리에서 시작한다. */
+        if (!REDUCED.matches) layoutCarousel(true, frac);
+        dragEnd();
+        if (track) void track.offsetWidth;
+        const steps = clampTo(Math.round(REDUCED.matches ? frac : (frac + vx * -VEL_BIAS)),
+                              stepMax());
+        if (steps){
+          slideBy(steps, true);
+          cueVanish();   /* 손짓으로 넘겼다 — 셰브론은 여기서 걷힌다 */
+        }
+        layoutCarousel(true);   /* 0장이면 제자리로, 그 밖에는 이미 앉은 자리를 다시 쓴다 */
       };
       stage.addEventListener("pointerup", endSwipe);
       stage.addEventListener("pointercancel", function(e){
         if (e.pointerId !== pid) return;
         pid = -1; decided = false; horiz = false;
-        if (track){ track.style.transition = "none"; track.style.transform = ""; }
+        dragEnd();
+        layoutCarousel(true);   /* 취소 = 넘김 없음. 부채는 제 자리로 돌아간다 */
       });
     }
     const bzPrev = $("bzPrev"), bzNext = $("bzNext");
@@ -3876,7 +3887,7 @@ views.addEventListener("click", function(e){
       (Date.now() - viewSwapAt) < VIEW_SWAP_GUARD) return;
   /* 셰브론 탭 = 스와이프와 같은 한 걸음. 중앙 선택보다 먼저 가로챈다. */
   const cueBtn = e.target.closest(".bz-cue-btn");
-  if (cueBtn){ flowCancel(); slideBy(cueBtn.getAttribute("data-cue") === "r" ? 1 : -1); return; }
+  if (cueBtn){ slideBy(cueBtn.getAttribute("data-cue") === "r" ? 1 : -1); return; }
   if (e.target.closest("#bzPick")){ pickCard(); return; }
   const sel = e.target.closest("[data-sel]");
   if (sel){ setStorySel(sel.getAttribute("data-sel")); return; }
@@ -3903,8 +3914,8 @@ window.addEventListener("keydown", function(e){
   if (state.view !== "browse") return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;
-  if (e.key === "ArrowLeft"){ e.preventDefault(); flowCancel(); slideBy(-1); }
-  else if (e.key === "ArrowRight"){ e.preventDefault(); flowCancel(); slideBy(1); }
+  if (e.key === "ArrowLeft"){ e.preventDefault(); slideBy(-1); }
+  else if (e.key === "ArrowRight"){ e.preventDefault(); slideBy(1); }
   else if (e.key === "Enter"){
     if (e.target && e.target.closest && e.target.closest("button")) return;
     e.preventDefault();

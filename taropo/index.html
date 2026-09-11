@@ -252,14 +252,19 @@ a{color:var(--rose-ink)}
 /* full-bleed inside the 24px screen padding so neighbours peek off both edges */
 .bz-stage{position:relative;align-self:stretch;height:288px;margin:70px -24px 0;overflow:hidden;flex:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .bz-track{position:absolute;inset:0}
+/* 손을 놓은 자리에서 슬롯까지 앉는 길이(정착)는 --bz-settle 한 곳에서 온다 — 기본 240ms.
+   밝기(opacity)도 같은 길이다: 부채의 밝기 사다리는 자리와 **같은 ad** 로 계산되므로,
+   둘이 따로 끝나면 카드가 다 앉은 뒤에도 밝기만 혼자 흐른다.
+   셰브론·키보드 한 걸음도 같은 전이를 탄다. 테스터는 ?debug=1&swipe=,,<ms> 로 :root 의
+   --bz-settle 을 덮어 기기에서 길이를 맞춰 본다(그 문은 ?debug=1 뒤에만 열린다). */
 .bz-cell{
   position:absolute;left:50%;top:50%;width:132px;height:208px;margin:-104px 0 0 -66px;
   transform-origin:50% 62%;pointer-events:none;will-change:transform,opacity;
-  transition:transform 320ms cubic-bezier(.22,1,.36,1), opacity 320ms ease;
+  transition:transform var(--bz-settle, 240ms) cubic-bezier(.22,1,.36,1), opacity var(--bz-settle, 240ms) ease;
 }
 /* 빈자리를 메우는 재배치 — 비행과 같은 곡선, 같은 길이로 조용히 흐른다. */
 .bz-track.is-refill .bz-cell{transition-duration:780ms, 380ms}
-/* 손가락이 닿아 있는 동안 — 부채는 곡선 없이 손을 그대로 따라간다(1:1).
+/* 손가락이 닿아 있는 동안 — 부채는 곡선 없이 손을 따라 흐른다(손 48px = 한 칸).
    is-refill 뒤에 둔다: 둘이 함께 걸리는 드문 순간에도 손가락 쪽이 이긴다. */
 .bz-track.is-drag .bz-cell{transition:none}
 .bz-cell .cardback{width:100%;height:100%;border-radius:12px}
@@ -1546,9 +1551,19 @@ function cueVanish(){
   if (c) c.classList.add("is-hidden");
 }
 
-/* 한 칸의 가로 폭. 레이아웃과 손짓이 같은 자를 쓴다 —
-   "손가락이 62px 갔다" 와 "부채가 한 장 갔다" 가 같은 말이어야 1:1 로 붙는다. */
+/* 한 칸의 가로 폭 — **레이아웃의 자**다(정지한 부채에서 이웃 칸까지의 거리). */
 const CELL_STEP = 62;
+/* 카드 넘김의 손맛 셋(2026-09-11 — 더 빠르게). 손짓의 자는 레이아웃의 자와 따로다.
+   DRAG_PX   손가락이 몇 px 가면 한 장인가. 칸 폭보다 짧아서, 끄는 동안 부채는 손보다
+             1.29배 앞서 흐른다 — 의도다. 같은 손짓이 더 멀리 간다.
+   VEL_BIAS  튕김 덤. 손을 뗄 때의 속도 1px/ms 마다 2.6장을 얹는다(거리와 더해 반올림).
+   SETTLE_MS 정착 길이. CSS 의 var(--bz-settle, 240ms) 와 같은 값이다(빌드가 둘을 맞춘다).
+   손짓은 이 상수들을 직접 읽지 않고 swipeTune 을 읽는다 — 평소에는 같은 값이고,
+   ?debug=1&swipe=<dragPx>,<bias>,<settleMs> 로 연 화면에서만 bootSwipe 가 덮는다. */
+const DRAG_PX = 48;
+const VEL_BIAS = 2.6;
+const SETTLE_MS = 240;
+const swipeTune = { dragPx: DRAG_PX, bias: VEL_BIAS, settleMs: SETTLE_MS };
 /* 이웃 칸의 밝기 사다리. 정수 자리에서는 예전 값 그대로고,
    그 사이는 직선으로 잇는다 — 손가락을 따라 흐를 때 밝기가 계단으로 튀지 않는다. */
 const OP_LADDER = [1, 0.82, 0.46, 0.15, 0];
@@ -2330,6 +2345,37 @@ function bootDebug(){
   try { DEBUG_ON = new URL(window.location.href).searchParams.get("debug") === "1"; }
   catch (e){ DEBUG_ON = false; }
   if (DEBUG_ON){ frameSelfCheck(); avoidSelfCheck(); }
+  bootSwipe();   /* ?swipe= 손잡이 — 안에서 다시 DEBUG_ON 을 본다 */
+}
+
+/* 카드 넘김 손잡이(테스터 전용) — ?debug=1&swipe=<dragPx>,<bias>,<settleMs>.
+   예: ?debug=1&swipe=40,3.2,200. 빈 칸은 기본값 그대로다(swipe=,,180 은 정착만 180ms).
+   숫자가 아닌 칸도 기본값이고, 범위 밖은 끝값에 붙인다 — dragPx 20~90 · bias 0~6 ·
+   settleMs 100~600. 정착 길이는 :root 의 --bz-settle 로 건다(.bz-cell 의 전이가 읽는다).
+   ?debug=1 이 없으면 이 문은 아예 없다 — 주소창이 유저의 손맛을 바꾸지 못한다.
+   배지는 리딩 화면에만 있어 넘김 화면에는 적을 자리가 없다. 지금 값은 window.__sepoSwipe()
+   가 돌려준다(검증기가 읽는 창이고, 이 창도 ?debug=1 뒤에서만 선다). */
+function bootSwipe(){
+  if (!DEBUG_ON) return;
+  let q = "";
+  try { q = String(new URL(window.location.href).searchParams.get("swipe") || ""); }
+  catch (e){ q = ""; }
+  const part = q.split(",");
+  const num = function(i, lo, hi){
+    const s = String(part[i] == null ? "" : part[i]).trim();
+    const v = s ? Number(s) : NaN;
+    return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null;
+  };
+  const dp = num(0, 20, 90), vb = num(1, 0, 6), ms = num(2, 100, 600);
+  if (dp !== null) swipeTune.dragPx = dp;
+  if (vb !== null) swipeTune.bias = vb;
+  if (ms !== null){
+    swipeTune.settleMs = ms;
+    document.documentElement.style.setProperty("--bz-settle", ms + "ms");
+  }
+  window.__sepoSwipe = function(){
+    return { dragPx: swipeTune.dragPx, bias: swipeTune.bias, settleMs: swipeTune.settleMs };
+  };
 }
 
 /* 조사 자가검사(v5) — 받침 있는 이름과 없는 이름을 섞어 틀이 제대로 읽히는지 본다.
@@ -3451,17 +3497,18 @@ function render(){
       pick.addEventListener("blur", off);
     }
     /* 스와이프/드래그 네비 — 포인터 통일(터치·마우스·펜). 가로 우세 제스처만 캡처해
-       **부채 자체**를 손가락에 1:1 로 붙인다. 트랙을 통째로 밀던 고무줄도, 손을 뗀 뒤
+       **부채 자체**를 손가락에 붙인다. 트랙을 통째로 밀던 고무줄도, 손을 뗀 뒤
        속도만큼 여러 걸음을 잇던 관성도 없다 — 기기에서 그 걸음들은 흐름이 아니라
        떨림으로 읽혔다.
 
-       손가락이 민 거리가 곧 넘어갈 장수다. 한 장 = CELL_STEP(62px, 레이아웃이 쓰는
-       바로 그 자) 이므로 frac = -dx / CELL_STEP 이 "지금 몇 장쯤 밀렸나" 다. 그리는
-       동안은 셀의 전이를 끄고(is-drag) 프레임당 한 번만 다시 그린다(rAF 스로틀).
-       손을 떼면 frac 을 반올림해 **한 번에** 그만큼 이동하고, 전이를 되살려 손가락이
-       놓아 준 자리에서 목적지까지 320ms 곡선 하나로 앉힌다(중간 정거장 없음).
-       빠른 튕김에는 VEL_BIAS 만큼의 덤을 얹는다 — 거리가 조금 모자라도 손의 기세는
-       읽어 준다. 세로 우세는 흘려 페이지 스크롤에 양보.
+       손가락이 민 거리가 곧 넘어갈 장수다. 한 장 = swipeTune.dragPx(기본 DRAG_PX 48px)
+       이므로 frac = -dx / dragPx 가 "지금 몇 장쯤 밀렸나" 다. 부채는 그 frac 에 칸 폭을
+       곱한 만큼 흐르니 손보다 조금 앞서 간다 — 짧은 손짓이 더 멀리 가는 것이 "빠르다" 로
+       읽힌다. 그리는 동안은 셀의 전이를 끄고(is-drag) 프레임당 한 번만 다시 그린다
+       (rAF 스로틀). 손을 떼면 frac 을 반올림해 **한 번에** 그만큼 이동하고, 전이를 되살려
+       손가락이 놓아 준 자리에서 목적지까지 240ms(--bz-settle) 곡선 하나로 앉힌다
+       (중간 정거장 없음). 빠른 튕김에는 swipeTune.bias 만큼의 덤을 얹는다 — 거리가 조금
+       모자라도 손의 기세는 읽어 준다. 세로 우세는 흘려 페이지 스크롤에 양보.
        탭(이동<8px·<250ms)=중앙 카드 선택.
        판정 문턱은 4px 다 — 6px 은 스와이프가 "안 먹는" 첫 인상을 만들었다. 대신 그
        문턱을 내리면 손이 조금 흔들린 탭도 제스처로 판정되므로, 가로로 판정됐어도
@@ -3472,8 +3519,6 @@ function render(){
       const track = $("bzTrack");
       const TAP_MOVE = 8, TAP_TIME = 250;
       const DECIDE_PX = 4;
-      /* 튕김 덤 — 1px/ms 마다 약 1.45장. 90px(한 장 반쯤)을 기준으로 잡았다. */
-      const VEL_BIAS = 90 / CELL_STEP;
       let sx = 0, sy = 0, st = 0, pid = -1, decided = false, horiz = false, lx = 0, lt = 0, vx = 0;
       let frac = 0, raf = 0;
       /* 끄는 동안에도 링 솔기는 넘지 않는다 — 반 장 앞에서 멈춘다. */
@@ -3508,7 +3553,7 @@ function render(){
         e.preventDefault();
         const now = e.timeStamp;
         if (now > lt){ vx = (e.clientX - lx) / (now - lt); lx = e.clientX; lt = now; }
-        frac = clampTo(-dx / CELL_STEP, fracMax());
+        frac = clampTo(-dx / swipeTune.dragPx, fracMax());
         /* 프레임당 한 번 — 손가락은 프레임보다 자주 움직이지만 그림은 한 번이면 된다. */
         if (!REDUCED.matches && !raf) raf = requestAnimationFrame(paint);
       });
@@ -3537,7 +3582,7 @@ function render(){
         if (!REDUCED.matches) layoutCarousel(true, frac);
         dragEnd();
         if (track) void track.offsetWidth;
-        const steps = clampTo(Math.round(REDUCED.matches ? frac : (frac + vx * -VEL_BIAS)),
+        const steps = clampTo(Math.round(REDUCED.matches ? frac : (frac + vx * -swipeTune.bias)),
                               stepMax());
         if (steps){
           slideBy(steps, true);

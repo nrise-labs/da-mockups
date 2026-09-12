@@ -2109,7 +2109,7 @@ function sqUnarm(list){
 
 /* 한 리딩 안에서 이미 한 번 연출한 화면은 다시 연출하지 않는다 —
    언어를 바꿔 다시 그릴 때 카드가 또 뒤집히면 그건 연출이 아니라 사고다. */
-const ARMED = { reveal:false, reading:false };
+const ARMED = { reveal:false, reading:false, readingLang:null };   /* readingLang = 리딩을 마지막으로 그린 언어 */
 let sealing = false;
 
 /* -------------------------------------------------------
@@ -3667,13 +3667,24 @@ function render(){
     }
   }
   if (state.view === "reading"){
+    /* 이미 한 번 연출한 화면은 최종 상태로 앉힌다. 다시 쓰는 자리는 **언어를 바꿔**
+       그 언어의 리더의 말이 아직 없을 때 하나뿐이다.
+       예전에는 이 자리에서 늘 다시 썼다. 그래서 스토리 작성기에서 [돌아가기]로 오면
+       리더의 말이 처음부터 다시 써지고, 줄이 넘어갈 때마다(약 29px) 화면이 자라 아래
+       [스토리에 올리기] 버튼이 밀려 내려갔다 — 누르려던 자리가 달아나는 것이라 유저
+       손가락도 헛디딘다. 라이브가 열려 있으면 더 나빴다: runTypingLive() 가 readerFill()
+       을 다시 불러 **리더의 말을 새로 생성**했다. 돌아올 때마다 생성 한 번, 그리고 방금
+       읽고 스토리 그림에 박아 넣은 문장이 다른 문장으로 바뀌었다(2026-09-12).
+       돌아오는 길에 첫 라이브가 아직 흐르던 중이었다면 그 물줄기는 위 liveAbort() 가
+       이미 끊었다 — 다시 열지 않고 사람이 쓴 문장 틀을 그대로 둔다. 유저가 방금 읽고
+       스토리 그림에 박은 문장이 그것이다. */
+    const langSwap = ARMED.readingLang !== null && ARMED.readingLang !== state.lang;
     if (REDUCED.matches || ARMED.reading){
-      /* 이미 한 번 연출한 화면이다. 다만 이 언어의 리더의 말이 아직 없고 라이브가
-         가능하면 그 한 줄만 새로 쓴다 — 그 밖에는 지금까지처럼 전부 한 번에 친다. */
-      if (liveReady()) runTypingLive();
-      else runTyping();
+      if (langSwap && liveReady()) runTypingLive();
+      else finishTyping();
     }
     else { ARMED.reading = true; readingSeq(); }
+    ARMED.readingLang = state.lang;
   }
 
 }
@@ -3726,6 +3737,7 @@ function startDraw(){
   sealing = false;
   ARMED.reveal = false;
   ARMED.reading = false;
+  ARMED.readingLang = null;   /* 새 판 = 아직 그린 적 없는 리딩 */
   state.seedKey = nowSeedKey();
   state.dateKey = state.seedKey.slice(0,10);
   state.deck = shuffledDeck(state.seedKey);

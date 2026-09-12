@@ -3819,6 +3819,26 @@ window.SEPO_STORY_DONE = function(result){
   render();   /* 버튼을 다시 살린다 — 화면은 스토리 그대로다 */
   toast(result === "unknown" ? t().postedUnknown : t().postFailed);
 };
+/* 늦은 확인(2026-09-11 실기기) — 앱은 작성기가 그림을 받는 순간 ok:true 로 답한다
+   (bridge.ts shareToStory 의 "낙관적" 답). 작성기에서 글을 쓰는 유저는 첫 확인(약 3초)이
+   끝날 때 아직 작성기 안에 있어 판정이 "unknown" 이 되고, 그 뒤에 올린 글은 아무도 보지
+   못했다. 이제 어댑터가 unknown 뒤에도 탭부터 2분까지 내 글 목록을 뒤에서 보다가 새 글을
+   찾으면 이 문을 한 번 부른다(시도 하나에 한 번 — 어댑터가 지킨다).
+     · 스토리 화면이고 아직 올림 완료가 아니면 → 올림 완료 화면 + 토스트
+     · 다른 화면에 있으면 → 토스트만(화면을 옮기지 않는다)
+     · 이미 올림 완료 화면이면 → 아무것도 하지 않는다
+   새 시도가 올리는 중이면 비킨다 — 그 시도의 답(SEPO_STORY_DONE)이 화면을 정한다.
+   목업에는 부르는 자가 없다(어댑터가 없다). */
+window.SEPO_STORY_LATE = function(result){
+  if (result !== "posted" || state.posting) return;
+  if (state.view === "story"){
+    if (state.posted) return;
+    state.posted = true;
+    state.postedReal = true;
+    render();
+  }
+  toast(t().postedReal);
+};
 function go(to){
   if (to === "story") openStory();
   else {
